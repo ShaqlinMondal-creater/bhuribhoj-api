@@ -1,0 +1,136 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class MessModel extends Model
+{
+    use HasFactory;
+
+    protected $table = 'messes';
+
+    protected $fillable = [
+        'name',
+        'code',
+        'address',
+        'district',
+        'pincode',
+        'contact_no',
+        'email',
+        'fund_mode',
+        'guest_chicken_price',
+        'guest_fish_price',
+        'guest_egg_price',
+        'guest_veg_price',
+        'monthly_due_amount',
+        'monthly_due_day',
+        'late_fee_amount',
+        'is_active',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'guest_chicken_price' => 'decimal:2',
+            'guest_fish_price' => 'decimal:2',
+            'guest_egg_price' => 'decimal:2',
+            'guest_veg_price' => 'decimal:2',
+            'monthly_due_amount' => 'decimal:2',
+            'late_fee_amount' => 'decimal:2',
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public function hasMessFund(): bool
+    {
+        return $this->fund_mode === 'mess_and_manager';
+    }
+
+    public function users(): HasMany
+    {
+        return $this->hasMany(UserModel::class, 'mess_id');
+    }
+
+    public function president(): HasOne
+    {
+        return $this->hasOne(UserModel::class, 'mess_id')->where('role', 'president');
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(MessSubscriptionModel::class, 'mess_id');
+    }
+
+    public function activeSubscription(): HasOne
+    {
+        return $this->hasOne(MessSubscriptionModel::class, 'mess_id')
+            ->ofMany(['id' => 'max'], function ($query) {
+                $query->where('status', 'active')
+                    ->whereDate('ends_on', '>=', now()->toDateString());
+            });
+    }
+
+    public function managers(): HasMany
+    {
+        return $this->hasMany(MessManagerModel::class, 'mess_id');
+    }
+
+    public function deposits(): HasMany
+    {
+        return $this->hasMany(DepositModel::class, 'mess_id');
+    }
+
+    public function monthlyDues(): HasMany
+    {
+        return $this->hasMany(MonthlyDueModel::class, 'mess_id');
+    }
+
+    public function rules(): HasMany
+    {
+        return $this->hasMany(MessRuleModel::class, 'mess_id');
+    }
+
+    public function fines(): HasMany
+    {
+        return $this->hasMany(FineModel::class, 'mess_id');
+    }
+
+    public function constantExpenses(): HasMany
+    {
+        return $this->hasMany(ConstantExpenseModel::class, 'mess_id');
+    }
+
+    public function expenseEntries(): HasMany
+    {
+        return $this->hasMany(ExpenseEntryModel::class, 'mess_id');
+    }
+
+    public function dailyMeals(): HasMany
+    {
+        return $this->hasMany(DailyMealModel::class, 'mess_id');
+    }
+
+    public function dailyMenus(): HasMany
+    {
+        return $this->hasMany(DailyMenuModel::class, 'mess_id');
+    }
+
+    public function marketPurchases(): HasMany
+    {
+        return $this->hasMany(MarketPurchaseModel::class, 'mess_id');
+    }
+
+    public function marketDuties(): HasMany
+    {
+        return $this->hasMany(MarketDutyModel::class, 'mess_id');
+    }
+
+    public function guestMeals(): HasMany
+    {
+        return $this->hasMany(GuestMealModel::class, 'mess_id');
+    }
+}
