@@ -28,6 +28,10 @@ class MessController extends Controller
             return response()->json($messes);
         }
 
+        if ($blank = $this->blankMessResponse($actor, ['data' => null])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
         $mess = MessModel::query()->with('activeSubscription.plan')->findOrFail($messId);
 

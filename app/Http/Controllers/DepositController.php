@@ -18,6 +18,17 @@ class DepositController extends Controller
     public function depositsFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, [
+            'total_amount' => 0,
+            'data' => [],
+            'count' => 0,
+            'limit' => (int) $request->input('limit', 20),
+            'offset' => (int) $request->input('offset', 0),
+        ])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $filters = $request->validate([

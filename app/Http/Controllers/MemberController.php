@@ -18,6 +18,17 @@ class MemberController extends Controller
     public function membersFetch(Request $request): JsonResponse
     {
         $user = $request->user();
+
+        if ($blank = $this->blankMessResponse($user, [
+            'data' => [],
+            'count' => 0,
+            'limit' => (int) $request->input('limit', 10),
+            'offset' => (int) $request->input('offset', 0),
+            'rooms' => [],
+        ])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($user, $request);
 
         $filters = $request->validate([

@@ -17,6 +17,20 @@ class ExpenseController extends Controller
     public function expensesFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, [
+            'total_amount' => 0,
+            'data' => [],
+            'meta' => [
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => 20,
+                'total' => 0,
+            ],
+        ])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $data = $request->validate([

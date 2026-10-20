@@ -21,6 +21,25 @@ class DashboardController extends Controller
     {
         $actor = $request->user();
 
+        if ($blank = $this->blankMessResponse($actor, [
+            'user' => $actor,
+            'mess_totals' => [
+                'total_deposit' => 0,
+                'total_expense' => 0,
+                'manager_fund' => 0,
+                'mess_fund' => 0,
+                'balance' => 0,
+            ],
+            'my_totals' => [
+                'total_deposit' => 0,
+                'guest_meals_amount' => 0,
+                'pending_fines' => 0,
+                'pending_dues' => [],
+            ],
+        ])) {
+            return $blank;
+        }
+
         if ($actor->role === 'admin' && ! $request->filled('mess_id')) {
             return response()->json([
                 'user' => $actor,
@@ -64,7 +83,7 @@ class DashboardController extends Controller
             ->sum('amount');
 
         return response()->json([
-            'user' => $actor->load('mess:id,name,code,fund_mode'),
+            'user' => $actor->load('mess:id,name,code,fund_type'),
             'mess_totals' => [
                 'total_deposit' => round($messDeposits, 2),
                 'total_expense' => round($messExpenses, 2),

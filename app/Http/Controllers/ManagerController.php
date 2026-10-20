@@ -17,6 +17,16 @@ class ManagerController extends Controller
     public function managersFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, [
+            'month' => now()->format('Y-m'),
+            'max' => 2,
+            'count' => 0,
+            'data' => [],
+        ])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $data = $request->validate([

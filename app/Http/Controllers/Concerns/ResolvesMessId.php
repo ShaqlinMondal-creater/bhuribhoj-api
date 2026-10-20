@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Models\UserModel;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -26,5 +27,20 @@ trait ResolvesMessId
         }
 
         return (int) $user->mess_id;
+    }
+
+    /**
+     * A signed-in house account with no mess yet has nothing to list.
+     * Callers return this empty payload instead of an error.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    protected function blankMessResponse(UserModel $user, array $payload): ?JsonResponse
+    {
+        if ($user->role === 'admin' || $user->mess_id) {
+            return null;
+        }
+
+        return response()->json($payload);
     }
 }

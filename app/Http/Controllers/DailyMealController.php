@@ -18,6 +18,20 @@ class DailyMealController extends Controller
     public function dailyMealsFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, [
+            'meal_date' => now()->toDateString(),
+            'summary' => [
+                'lunch_active' => 0,
+                'lunch_taken' => 0,
+                'dinner_active' => 0,
+                'dinner_taken' => 0,
+            ],
+            'data' => [],
+        ])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $data = $request->validate([

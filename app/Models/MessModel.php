@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Casts\KolkataDate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -21,13 +23,13 @@ class MessModel extends Model
         'pincode',
         'contact_no',
         'email',
-        'fund_mode',
-        'guest_chicken_price',
-        'guest_fish_price',
-        'guest_egg_price',
-        'guest_veg_price',
+        'fund_type',
+        'president_user_id',
+        'manager_user_id',
+        'guest_meal_setup_id',
         'monthly_due_amount',
-        'monthly_due_day',
+        'monthly_due_date',
+        's_deposite_amount',
         'late_fee_amount',
         'is_active',
     ];
@@ -35,11 +37,9 @@ class MessModel extends Model
     protected function casts(): array
     {
         return [
-            'guest_chicken_price' => 'decimal:2',
-            'guest_fish_price' => 'decimal:2',
-            'guest_egg_price' => 'decimal:2',
-            'guest_veg_price' => 'decimal:2',
             'monthly_due_amount' => 'decimal:2',
+            'monthly_due_date' => KolkataDate::class,
+            's_deposite_amount' => 'decimal:2',
             'late_fee_amount' => 'decimal:2',
             'is_active' => 'boolean',
         ];
@@ -47,7 +47,7 @@ class MessModel extends Model
 
     public function hasMessFund(): bool
     {
-        return $this->fund_mode === 'mess_and_manager';
+        return $this->fund_type === 'mess_and_manager';
     }
 
     public function users(): HasMany
@@ -58,6 +58,31 @@ class MessModel extends Model
     public function president(): HasOne
     {
         return $this->hasOne(UserModel::class, 'mess_id')->where('role', 'president');
+    }
+
+    public function presidentUser(): BelongsTo
+    {
+        return $this->belongsTo(UserModel::class, 'president_user_id');
+    }
+
+    public function managerUser(): BelongsTo
+    {
+        return $this->belongsTo(UserModel::class, 'manager_user_id');
+    }
+
+    public function guestMealSetup(): BelongsTo
+    {
+        return $this->belongsTo(GuestMealSetupModel::class, 'guest_meal_setup_id');
+    }
+
+    public function guestMealSetups(): HasMany
+    {
+        return $this->hasMany(GuestMealSetupModel::class, 'mess_id');
+    }
+
+    public function pmDetails(): HasMany
+    {
+        return $this->hasMany(MessPmDetailModel::class, 'mess_id');
     }
 
     public function subscriptions(): HasMany

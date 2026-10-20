@@ -15,6 +15,11 @@ class DailyMenuController extends Controller
     public function dailyMenusFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, ['data' => []])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $data = $request->validate([

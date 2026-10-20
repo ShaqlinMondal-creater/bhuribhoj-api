@@ -18,6 +18,11 @@ class FineController extends Controller
     public function finesFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, ['data' => []])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $data = $request->validate([

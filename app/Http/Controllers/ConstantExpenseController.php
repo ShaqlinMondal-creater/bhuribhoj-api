@@ -15,6 +15,11 @@ class ConstantExpenseController extends Controller
     public function constantExpensesFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, ['data' => []])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $rows = ConstantExpenseModel::query()

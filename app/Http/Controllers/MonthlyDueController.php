@@ -21,6 +21,22 @@ class MonthlyDueController extends Controller
     public function monthlyDuesFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, [
+            'month' => now()->format('Y-m'),
+            'summary' => [
+                'total_amount' => 0,
+                'total_late_fee' => 0,
+                'pending' => 0,
+                'paid' => 0,
+                'overdue' => 0,
+                'waived' => 0,
+            ],
+            'data' => [],
+        ])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $filters = $request->validate([

@@ -14,6 +14,11 @@ class MessRuleController extends Controller
     public function messRulesFetch(Request $request): JsonResponse
     {
         $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, ['data' => []])) {
+            return $blank;
+        }
+
         $messId = $this->resolveMessId($actor, $request);
 
         $rows = MessRuleModel::query()

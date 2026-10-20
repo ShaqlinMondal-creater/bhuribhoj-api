@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\KolkataDate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -18,14 +19,15 @@ class DepositModel extends Model
         'deposited_on',
         'for_month',
         'note',
-        'recorded_by',
+        'added_by',
     ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
-            'deposited_on' => 'date',
+            'deposited_on' => KolkataDate::class,
+            'for_month' => KolkataDate::class,
         ];
     }
 
@@ -39,8 +41,8 @@ class DepositModel extends Model
         return $this->belongsTo(UserModel::class, 'user_id');
     }
 
-    public function recorder(): BelongsTo
+    public function addedBy(): BelongsTo
     {
-        return $this->belongsTo(UserModel::class, 'recorded_by');
+        return $this->belongsTo(UserModel::class, 'added_by');
     }
 }

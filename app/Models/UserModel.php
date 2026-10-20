@@ -122,6 +122,21 @@ class UserModel extends Authenticatable
         return $this->hasMany(MessManagerModel::class, 'user_id');
     }
 
+    public function messesAsPresident(): HasMany
+    {
+        return $this->hasMany(MessModel::class, 'president_user_id');
+    }
+
+    public function messesAsManager(): HasMany
+    {
+        return $this->hasMany(MessModel::class, 'manager_user_id');
+    }
+
+    public function depositsAdded(): HasMany
+    {
+        return $this->hasMany(DepositModel::class, 'added_by');
+    }
+
     public function sentInvitations(): HasMany
     {
         return $this->hasMany(MessInvitationModel::class, 'invited_by');
