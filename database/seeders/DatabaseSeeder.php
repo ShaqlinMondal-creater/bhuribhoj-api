@@ -2,15 +2,12 @@
 
 namespace Database\Seeders;
 
-use App\Models\MessInvitationModel;
-use App\Models\MessManagerModel;
 use App\Models\MessModel;
 use App\Models\MessSubscriptionModel;
 use App\Models\PlanModel;
 use App\Models\UserModel;
 use App\Support\MemberCodeGenerator;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -24,7 +21,7 @@ class DatabaseSeeder extends Seeder
             PlanModel::query()->updateOrCreate(['slug' => $plan['slug']], $plan);
         }
 
-        $admin = UserModel::query()->updateOrCreate(
+        UserModel::query()->updateOrCreate(
             ['email' => 'admin@bhuribhoj.local'],
             [
                 'mess_id' => null,
@@ -39,19 +36,6 @@ class DatabaseSeeder extends Seeder
 
         $yearPlan = PlanModel::query()->where('slug', '1-year')->firstOrFail();
 
-        MessInvitationModel::query()->updateOrCreate(
-            ['email' => 'president@paulmess.local', 'status' => 'accepted'],
-            [
-                'invited_by' => $admin->id,
-                'plan_id' => $yearPlan->id,
-                'mess_name' => 'Paul Mess',
-                'mobile' => '9000000001',
-                'token' => Str::random(40),
-                'expires_at' => now()->addDays(7),
-                'accepted_at' => now(),
-            ],
-        );
-
         $mess = MessModel::query()->updateOrCreate(
             ['code' => 'PAULMESS'],
             [
@@ -61,22 +45,13 @@ class DatabaseSeeder extends Seeder
                 'pincode' => '700001',
                 'contact_no' => '9876543210',
                 'email' => 'paulmess@example.com',
-                'fund_mode' => 'mess_and_manager',
-                'guest_chicken_price' => 90,
-                'guest_fish_price' => 70,
-                'guest_egg_price' => 50,
-                'guest_veg_price' => 45,
+                'fund_type' => 'mess_and_manager',
                 'monthly_due_amount' => 1500,
-                'monthly_due_day' => 5,
+                'monthly_due_date' => '05-10-2026',
                 'late_fee_amount' => 50,
                 'is_active' => true,
             ],
         );
-
-        $invitation = MessInvitationModel::query()
-            ->where('email', 'president@paulmess.local')
-            ->where('status', 'accepted')
-            ->first();
 
         MessSubscriptionModel::query()->updateOrCreate(
             [
@@ -87,7 +62,6 @@ class DatabaseSeeder extends Seeder
             [
                 'purchase_source' => 'admin_invite',
                 'purchased_by' => null,
-                'invitation_id' => $invitation?->id,
                 'starts_on' => now()->toDateString(),
                 'ends_on' => now()->addYear()->toDateString(),
                 'amount_paid_inr' => $yearPlan->price_inr,
@@ -131,15 +105,6 @@ class DatabaseSeeder extends Seeder
         }
 
         $manager->save();
-
-        MessManagerModel::query()->updateOrCreate(
-            [
-                'mess_id' => $mess->id,
-                'user_id' => $manager->id,
-                'month' => now()->format('Y-m'),
-            ],
-            [],
-        );
 
         $member = UserModel::query()->firstOrNew(['email' => 'member@paulmess.local']);
         $member->fill([

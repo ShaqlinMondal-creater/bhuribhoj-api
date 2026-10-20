@@ -41,7 +41,7 @@ class ExpenseController extends Controller
         ]);
 
         $query = ExpenseEntryModel::query()
-            ->with(['recorder:id,name', 'constantExpense:id,name'])
+            ->with(['recorder:id,name'])
             ->where('mess_id', $messId);
 
         if (! empty($data['fund_type'])) {
@@ -87,7 +87,6 @@ class ExpenseController extends Controller
             'amount' => ['required', 'numeric', 'min:0'],
             'spent_on' => ['required', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
-            'constant_expense_id' => ['nullable', 'integer', Rule::exists('constant_expenses', 'id')],
         ]);
 
         if ($data['fund_type'] === 'mess_fund' && ! $mess->hasMessFund()) {
@@ -108,13 +107,12 @@ class ExpenseController extends Controller
             'amount' => $data['amount'],
             'spent_on' => $data['spent_on'],
             'note' => $data['note'] ?? null,
-            'constant_expense_id' => $data['constant_expense_id'] ?? null,
             'recorded_by' => $actor->id,
         ]);
 
         return response()->json([
             'message' => 'Expense recorded.',
-            'data' => $row->load(['recorder:id,name', 'constantExpense:id,name']),
+            'data' => $row->load(['recorder:id,name']),
         ], 201);
     }
 

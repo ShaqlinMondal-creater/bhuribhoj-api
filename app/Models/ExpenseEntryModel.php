@@ -17,7 +17,6 @@ class ExpenseEntryModel extends Model
         'amount',
         'spent_on',
         'note',
-        'constant_expense_id',
         'recorded_by',
     ];
 
@@ -32,11 +31,6 @@ class ExpenseEntryModel extends Model
     public function mess(): BelongsTo
     {
         return $this->belongsTo(MessModel::class, 'mess_id');
-    }
-
-    public function constantExpense(): BelongsTo
-    {
-        return $this->belongsTo(ConstantExpenseModel::class, 'constant_expense_id');
     }
 
     public function recorder(): BelongsTo

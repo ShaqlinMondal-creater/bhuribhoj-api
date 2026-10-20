@@ -33,9 +33,4 @@ class PlanModel extends Model
     {
         return $this->hasMany(MessSubscriptionModel::class, 'plan_id');
     }
-
-    public function invitations(): HasMany
-    {
-        return $this->hasMany(MessInvitationModel::class, 'plan_id');
-    }
 }

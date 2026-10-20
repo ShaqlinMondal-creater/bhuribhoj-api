@@ -99,34 +99,9 @@ class MessModel extends Model
             });
     }
 
-    public function managers(): HasMany
-    {
-        return $this->hasMany(MessManagerModel::class, 'mess_id');
-    }
-
     public function deposits(): HasMany
     {
         return $this->hasMany(DepositModel::class, 'mess_id');
-    }
-
-    public function monthlyDues(): HasMany
-    {
-        return $this->hasMany(MonthlyDueModel::class, 'mess_id');
-    }
-
-    public function rules(): HasMany
-    {
-        return $this->hasMany(MessRuleModel::class, 'mess_id');
-    }
-
-    public function fines(): HasMany
-    {
-        return $this->hasMany(FineModel::class, 'mess_id');
-    }
-
-    public function constantExpenses(): HasMany
-    {
-        return $this->hasMany(ConstantExpenseModel::class, 'mess_id');
     }
 
     public function expenseEntries(): HasMany
@@ -142,20 +117,5 @@ class MessModel extends Model
     public function dailyMenus(): HasMany
     {
         return $this->hasMany(DailyMenuModel::class, 'mess_id');
-    }
-
-    public function marketPurchases(): HasMany
-    {
-        return $this->hasMany(MarketPurchaseModel::class, 'mess_id');
-    }
-
-    public function marketDuties(): HasMany
-    {
-        return $this->hasMany(MarketDutyModel::class, 'mess_id');
-    }
-
-    public function guestMeals(): HasMany
-    {
-        return $this->hasMany(GuestMealModel::class, 'mess_id');
     }
 }

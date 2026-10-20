@@ -14,7 +14,6 @@ class MessSubscriptionModel extends Model
         'plan_id',
         'purchase_source',
         'purchased_by',
-        'invitation_id',
         'starts_on',
         'ends_on',
         'status',
@@ -45,10 +44,5 @@ class MessSubscriptionModel extends Model
     public function purchaser(): BelongsTo
     {
         return $this->belongsTo(UserModel::class, 'purchased_by');
-    }
-
-    public function invitation(): BelongsTo
-    {
-        return $this->belongsTo(MessInvitationModel::class, 'invitation_id');
     }
 }

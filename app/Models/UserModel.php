@@ -97,29 +97,9 @@ class UserModel extends Authenticatable
         return $this->hasMany(DepositModel::class, 'user_id');
     }
 
-    public function monthlyDues(): HasMany
-    {
-        return $this->hasMany(MonthlyDueModel::class, 'user_id');
-    }
-
-    public function fines(): HasMany
-    {
-        return $this->hasMany(FineModel::class, 'user_id');
-    }
-
     public function dailyMeals(): HasMany
     {
         return $this->hasMany(DailyMealModel::class, 'user_id');
-    }
-
-    public function guestMeals(): HasMany
-    {
-        return $this->hasMany(GuestMealModel::class, 'member_id');
-    }
-
-    public function managerMonths(): HasMany
-    {
-        return $this->hasMany(MessManagerModel::class, 'user_id');
     }
 
     public function messesAsPresident(): HasMany
@@ -135,11 +115,6 @@ class UserModel extends Authenticatable
     public function depositsAdded(): HasMany
     {
         return $this->hasMany(DepositModel::class, 'added_by');
-    }
-
-    public function sentInvitations(): HasMany
-    {
-        return $this->hasMany(MessInvitationModel::class, 'invited_by');
     }
 
     public function purchasedSubscriptions(): HasMany

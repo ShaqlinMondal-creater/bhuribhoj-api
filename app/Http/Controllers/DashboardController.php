@@ -5,10 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResolvesMessId;
 use App\Models\DepositModel;
 use App\Models\ExpenseEntryModel;
-use App\Models\FineModel;
-use App\Models\GuestMealModel;
 use App\Models\MessModel;
-use App\Models\MonthlyDueModel;
 use App\Models\UserModel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,9 +29,6 @@ class DashboardController extends Controller
             ],
             'my_totals' => [
                 'total_deposit' => 0,
-                'guest_meals_amount' => 0,
-                'pending_fines' => 0,
-                'pending_dues' => [],
             ],
         ])) {
             return $blank;
@@ -65,23 +59,6 @@ class DashboardController extends Controller
             ->where('user_id', $actor->id)
             ->sum('amount');
 
-        $myPendingDues = MonthlyDueModel::query()
-            ->where('mess_id', $messId)
-            ->where('user_id', $actor->id)
-            ->whereIn('status', ['pending', 'overdue'])
-            ->get(['id', 'month', 'amount', 'late_fee', 'due_on', 'status']);
-
-        $myGuestMeals = (float) GuestMealModel::query()
-            ->where('mess_id', $messId)
-            ->where('member_id', $actor->id)
-            ->sum('total_amount');
-
-        $myFines = (float) FineModel::query()
-            ->where('mess_id', $messId)
-            ->where('user_id', $actor->id)
-            ->where('status', 'pending')
-            ->sum('amount');
-
         return response()->json([
             'user' => $actor->load('mess:id,name,code,fund_type'),
             'mess_totals' => [
@@ -93,9 +70,6 @@ class DashboardController extends Controller
             ],
             'my_totals' => [
                 'total_deposit' => round($myDeposits, 2),
-                'guest_meals_amount' => round($myGuestMeals, 2),
-                'pending_fines' => round($myFines, 2),
-                'pending_dues' => $myPendingDues,
             ],
         ]);
     }
