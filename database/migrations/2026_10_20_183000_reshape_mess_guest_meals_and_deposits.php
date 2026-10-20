@@ -69,10 +69,9 @@ return new class extends Migration
                 ->orderBy('id')
                 ->value('id');
 
-            $managerId = DB::table('mess_managers')
-                ->where('mess_id', $mess->id)
-                ->orderByDesc('id')
-                ->value('user_id');
+            $managerId = Schema::hasTable('mess_managers')
+                ? DB::table('mess_managers')->where('mess_id', $mess->id)->orderByDesc('id')->value('user_id')
+                : null;
 
             $dueDate = null;
             $dueDay = (int) $mess->monthly_due_day;
@@ -90,7 +89,9 @@ return new class extends Migration
                 'monthly_due_date' => $dueDate,
             ]);
 
-            $assignments = DB::table('mess_managers')->where('mess_id', $mess->id)->orderBy('id')->get();
+            $assignments = Schema::hasTable('mess_managers')
+                ? DB::table('mess_managers')->where('mess_id', $mess->id)->orderBy('id')->get()
+                : collect();
 
             if ($assignments->isEmpty() && $presidentId) {
                 DB::table('mess_p_m_details')->insert([
