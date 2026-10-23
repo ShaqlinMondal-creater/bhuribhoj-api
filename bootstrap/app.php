@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
-            if ($request->is('api/*') || $request->expectsJson()) {
+            if ($request->expectsJson() || $request->is('api/public/*') || $request->is('api/authorize/*') || $request->is('api/admin/*') || $request->is('api/president/*') || $request->is('api/manager/*') || $request->is('api/member/*')) {
                 return null;
             }
 
