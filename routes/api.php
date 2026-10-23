@@ -12,6 +12,7 @@ use App\Http\Controllers\MessController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,6 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/{id}/delete', [PlanController::class, 'plansDelete']);
         });
 
+        Route::post('/users/fetch', [UserController::class, 'usersFetch']);
         Route::post('/messes/open', [MessController::class, 'messesOpen']);
 
         Route::middleware('mess.ready')->group(function () {
