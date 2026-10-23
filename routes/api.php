@@ -53,6 +53,8 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         Route::post('/users/fetch', [UserController::class, 'usersFetch']);
+        Route::post('/users/update', [UserController::class, 'usersUpdate']);
+        Route::delete('/users/{id}/delete', [UserController::class, 'usersDelete']);
         Route::post('/messes/open', [MessController::class, 'messesOpen']);
 
         Route::middleware('mess.ready')->group(function () {
