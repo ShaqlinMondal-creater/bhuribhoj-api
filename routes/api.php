@@ -34,6 +34,8 @@ Route::prefix('public')->group(function () {
         Route::post('/register/complete', [RegisterController::class, 'registerComplete']);
         Route::post('/google', [RegisterController::class, 'google']);
     });
+
+    Route::post('/plans/fetch', [PlanController::class, 'plansFetch']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -47,7 +49,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::prefix('plans')->group(function () {
-            Route::post('/fetch', [PlanController::class, 'plansFetch']);
             Route::post('/create', [PlanController::class, 'plansCreate']);
             Route::post('/update', [PlanController::class, 'plansUpdate']);
             Route::delete('/{id}/delete', [PlanController::class, 'plansDelete']);
