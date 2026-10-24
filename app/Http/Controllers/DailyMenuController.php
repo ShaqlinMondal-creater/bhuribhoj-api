@@ -23,9 +23,11 @@ class DailyMenuController extends Controller
         $messId = $this->resolveMessId($actor, $request);
 
         $data = $request->validate([
-            'menu_date' => ['sometimes', 'date'],
-            'from_date' => ['sometimes', 'date'],
-            'to_date' => ['sometimes', 'date'],
+            'menu_date' => ['sometimes', 'nullable', 'date'],
+            'from_date' => ['sometimes', 'nullable', 'date'],
+            'to_date' => ['sometimes', 'nullable', 'date'],
+            'meal_type' => ['sometimes', 'nullable', Rule::in(['lunch', 'dinner'])],
+            'search' => ['sometimes', 'nullable', 'string', 'max:120'],
         ]);
 
         $query = DailyMenuModel::query()
@@ -34,10 +36,24 @@ class DailyMenuController extends Controller
 
         if (! empty($data['menu_date'])) {
             $query->whereDate('menu_date', $data['menu_date']);
-        } else {
-            $from = $data['from_date'] ?? now()->startOfMonth()->toDateString();
-            $to = $data['to_date'] ?? now()->endOfMonth()->toDateString();
-            $query->whereBetween('menu_date', [$from, $to]);
+        }
+
+        if (! empty($data['from_date'])) {
+            $query->whereDate('menu_date', '>=', $data['from_date']);
+        }
+
+        if (! empty($data['to_date'])) {
+            $query->whereDate('menu_date', '<=', $data['to_date']);
+        }
+
+        if (! empty($data['meal_type'])) {
+            $query->where('meal_type', $data['meal_type']);
+        }
+
+        $search = trim((string) ($data['search'] ?? ''));
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $query->where('dishes', 'like', $like);
         }
 
         return response()->json([
