@@ -10,6 +10,7 @@ use App\Support\AccountSeat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -18,6 +19,87 @@ class SubscriptionController extends Controller
     public function __construct(
         private readonly RazorpayService $razorpay,
     ) {}
+
+    public function subscriptionsFetch(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $filters = $request->validate([
+            'search' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'status' => ['sometimes', 'nullable', Rule::in(['pending', 'active', 'expired', 'cancelled'])],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'offset' => ['sometimes', 'integer', 'min:0'],
+        ]);
+
+        $limit = (int) ($filters['limit'] ?? 10);
+        $offset = (int) ($filters['offset'] ?? 0);
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        $query = MessSubscriptionModel::query()->with([
+            'mess:id,name,code',
+            'plan:id,name,duration_months,price_inr',
+            'purchaser:id,name,email',
+        ]);
+
+        if ($actor->role === 'president') {
+            if ($actor->mess_id) {
+                $query->where('mess_id', $actor->mess_id);
+            } else {
+                $query->where('purchased_by', $actor->id);
+            }
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $query->where(function ($inner) use ($like) {
+                $inner->where('razorpay_order_id', 'like', $like)
+                    ->orWhere('razorpay_payment_id', 'like', $like)
+                    ->orWhereHas('mess', function ($mess) use ($like) {
+                        $mess->where('name', 'like', $like)->orWhere('code', 'like', $like);
+                    })
+                    ->orWhereHas('plan', function ($plan) use ($like) {
+                        $plan->where('name', 'like', $like);
+                    })
+                    ->orWhereHas('purchaser', function ($user) use ($like) {
+                        $user->where('name', 'like', $like)->orWhere('email', 'like', $like);
+                    });
+            });
+        }
+
+        $count = (clone $query)->count();
+        $rows = $query->orderByDesc('id')->skip($offset)->take($limit)->get();
+
+        return response()->json([
+            'data' => $rows->map(fn (MessSubscriptionModel $row) => $this->present($row))->values(),
+            'count' => $count,
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
+    }
+
+    public function subscriptionsDelete(int $id): JsonResponse
+    {
+        $row = MessSubscriptionModel::query()->find($id);
+
+        if (! $row) {
+            throw ValidationException::withMessages([
+                'id' => ['That subscription was not found.'],
+            ]);
+        }
+
+        PaymentLogModel::query()
+            ->where('mess_subscription_id', $row->id)
+            ->update(['mess_subscription_id' => null]);
+
+        $row->delete();
+
+        return response()->json([
+            'message' => 'Subscription deleted.',
+        ]);
+    }
 
     public function subscriptionsOrder(Request $request): JsonResponse
     {
@@ -238,5 +320,40 @@ class SubscriptionController extends Controller
             ->where('razorpay_order_id', $subscription->razorpay_order_id)
             ->whereKeyNot($row->id)
             ->delete();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function present(MessSubscriptionModel $row): array
+    {
+        return [
+            'id' => $row->id,
+            'mess_id' => $row->mess_id,
+            'status' => $row->status,
+            'purchase_source' => $row->purchase_source,
+            'starts_on' => $row->starts_on?->toDateString(),
+            'ends_on' => $row->ends_on?->toDateString(),
+            'amount_paid_inr' => $row->amount_paid_inr,
+            'razorpay_order_id' => $row->razorpay_order_id,
+            'razorpay_payment_id' => $row->razorpay_payment_id,
+            'created_at' => $row->created_at,
+            'mess' => $row->mess ? [
+                'id' => $row->mess->id,
+                'name' => $row->mess->name,
+                'code' => $row->mess->code,
+            ] : null,
+            'plan' => $row->plan ? [
+                'id' => $row->plan->id,
+                'name' => $row->plan->name,
+                'duration_months' => $row->plan->duration_months,
+                'price_inr' => $row->plan->price_inr,
+            ] : null,
+            'purchaser' => $row->purchaser ? [
+                'id' => $row->purchaser->id,
+                'name' => $row->purchaser->name,
+                'email' => $row->purchaser->email,
+            ] : null,
+        ];
     }
 }

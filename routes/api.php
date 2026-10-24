@@ -57,6 +57,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/payments/fetch', [PaymentController::class, 'paymentsFetch']);
         Route::delete('/payments/{id}/delete', [PaymentController::class, 'paymentsDelete']);
 
+        Route::post('/subscriptions/fetch', [SubscriptionController::class, 'subscriptionsFetch']);
+        Route::delete('/subscriptions/{id}/delete', [SubscriptionController::class, 'subscriptionsDelete']);
+
         Route::post('/users/fetch', [UserController::class, 'usersFetch']);
         Route::post('/users/update', [UserController::class, 'usersUpdate']);
         Route::delete('/users/{id}/delete', [UserController::class, 'usersDelete']);
@@ -117,6 +120,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/order', [SubscriptionController::class, 'subscriptionsOrder']);
             Route::post('/fail', [SubscriptionController::class, 'subscriptionsFail']);
             Route::post('/verify', [SubscriptionController::class, 'subscriptionsVerify']);
+            Route::post('/fetch', [SubscriptionController::class, 'subscriptionsFetch']);
         });
 
         Route::post('/messes/open', [MessController::class, 'messesOpen']);
