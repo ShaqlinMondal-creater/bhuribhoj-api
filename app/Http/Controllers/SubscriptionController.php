@@ -221,15 +221,22 @@ class SubscriptionController extends Controller
         ?string $paymentId = null,
         ?string $reason = null,
     ): void {
-        PaymentLogModel::query()->create([
-            'user_id' => $userId,
-            'mess_subscription_id' => $subscription->id,
-            'plan_id' => $subscription->plan_id,
-            'razorpay_order_id' => $subscription->razorpay_order_id,
-            'razorpay_payment_id' => $paymentId,
-            'amount_inr' => (int) $subscription->amount_paid_inr,
-            'status' => $status,
-            'failure_reason' => $reason,
-        ]);
+        $row = PaymentLogModel::query()->updateOrCreate(
+            ['razorpay_order_id' => $subscription->razorpay_order_id],
+            [
+                'user_id' => $userId,
+                'mess_subscription_id' => $subscription->id,
+                'plan_id' => $subscription->plan_id,
+                'razorpay_payment_id' => $paymentId,
+                'amount_inr' => (int) $subscription->amount_paid_inr,
+                'status' => $status,
+                'failure_reason' => $status === 'paid' ? null : $reason,
+            ],
+        );
+
+        PaymentLogModel::query()
+            ->where('razorpay_order_id', $subscription->razorpay_order_id)
+            ->whereKeyNot($row->id)
+            ->delete();
     }
 }
