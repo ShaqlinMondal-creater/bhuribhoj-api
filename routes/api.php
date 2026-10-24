@@ -9,6 +9,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\GuestMealSetupController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MessController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\SubscriptionController;
@@ -51,6 +52,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/update', [PlanController::class, 'plansUpdate']);
             Route::delete('/{id}/delete', [PlanController::class, 'plansDelete']);
         });
+
+        Route::post('/payments/fetch', [PaymentController::class, 'paymentsFetch']);
+        Route::delete('/payments/{id}/delete', [PaymentController::class, 'paymentsDelete']);
 
         Route::post('/users/fetch', [UserController::class, 'usersFetch']);
         Route::post('/users/update', [UserController::class, 'usersUpdate']);
