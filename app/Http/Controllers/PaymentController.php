@@ -2,15 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesMessId;
 use App\Models\PaymentLogModel;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
+    use ResolvesMessId;
+
     public function paymentsFetch(): JsonResponse
     {
         $rows = PaymentLogModel::query()
+            ->with([
+                'user:id,name,email',
+                'plan:id,name,duration_months,price_inr',
+            ])
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'user_id',
+                'mess_subscription_id',
+                'plan_id',
+                'razorpay_order_id',
+                'razorpay_payment_id',
+                'amount_inr',
+                'status',
+                'failure_reason',
+                'created_at',
+            ]);
+
+        return response()->json([
+            'data' => $rows->map(fn (PaymentLogModel $row) => $this->present($row))->values(),
+        ]);
+    }
+
+    public function billsFetch(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+
+        if ($blank = $this->blankMessResponse($actor, ['data' => []])) {
+            return $blank;
+        }
+
+        $messId = $this->resolveMessId($actor, $request);
+
+        $rows = PaymentLogModel::query()
+            ->whereHas('subscription', function ($query) use ($messId) {
+                $query->where('mess_id', $messId);
+            })
             ->with([
                 'user:id,name,email',
                 'plan:id,name,duration_months,price_inr',

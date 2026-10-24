@@ -168,6 +168,8 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/create', [ExpenseController::class, 'expensesCreate']);
                 Route::delete('/{id}/delete', [ExpenseController::class, 'expensesDelete']);
             });
+
+            Route::post('/bills/fetch', [PaymentController::class, 'billsFetch']);
         });
     });
 
@@ -193,6 +195,9 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/create', [ExpenseController::class, 'expensesCreate']);
                 Route::delete('/{id}/delete', [ExpenseController::class, 'expensesDelete']);
             });
+
+            Route::post('/messes/fetch', [MessController::class, 'messesFetch']);
+            Route::post('/bills/fetch', [PaymentController::class, 'billsFetch']);
         });
     });
 
@@ -207,6 +212,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
             Route::post('/daily-menus/fetch', [DailyMenuController::class, 'dailyMenusFetch']);
             Route::post('/expenses/fetch', [ExpenseController::class, 'expensesFetch']);
+            Route::post('/messes/fetch', [MessController::class, 'messesFetch']);
+            Route::post('/bills/fetch', [PaymentController::class, 'billsFetch']);
         });
     });
 });
