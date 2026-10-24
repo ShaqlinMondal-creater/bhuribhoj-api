@@ -10,6 +10,7 @@ use App\Rules\KolkataDateRule;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -35,13 +36,26 @@ class DepositController extends Controller
 
         $filters = $request->validate([
             'user_id' => ['sometimes', 'integer'],
-            'fund_type' => ['sometimes', Rule::in(['mess_fund', 'manager_fund'])],
-            'deposit_type' => ['sometimes', Rule::in(['join', 'monthly', 'extra'])],
-            'for_month' => ['sometimes', new KolkataDateRule],
+            'search' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'fund_type' => ['sometimes', 'nullable', Rule::in(['mess_fund', 'manager_fund'])],
+            'deposit_type' => ['sometimes', 'nullable', Rule::in(['join', 'monthly', 'extra'])],
+            'for_month' => ['sometimes', 'nullable', new KolkataDateRule],
+            'from_date' => ['sometimes', 'nullable', new KolkataDateRule],
+            'to_date' => ['sometimes', 'nullable', new KolkataDateRule],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'offset' => ['sometimes', 'integer', 'min:0'],
         ]);
+
+        if (! empty($filters['from_date']) && ! empty($filters['to_date'])) {
+            $from = Carbon::createFromFormat('d-m-Y', $filters['from_date'], 'Asia/Kolkata')->startOfDay();
+            $to = Carbon::createFromFormat('d-m-Y', $filters['to_date'], 'Asia/Kolkata')->startOfDay();
+            if ($to->lt($from)) {
+                throw ValidationException::withMessages([
+                    'to_date' => ['The end date must be on or after the start date.'],
+                ]);
+            }
+        }
 
         $query = DepositModel::query()
             ->with(['user:id,name,email,member_code,role', 'addedBy:id,name'])
@@ -49,6 +63,15 @@ class DepositController extends Controller
 
         if (! empty($filters['user_id'])) {
             $query->where('user_id', $filters['user_id']);
+        }
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $query->whereHas('user', function ($user) use ($like) {
+                $user->where('name', 'like', $like)
+                    ->orWhere('member_code', 'like', $like);
+            });
         }
 
         if (! empty($filters['fund_type'])) {
@@ -60,7 +83,18 @@ class DepositController extends Controller
         }
 
         if (! empty($filters['for_month'])) {
-            $query->where('for_month', $filters['for_month']);
+            $month = Carbon::createFromFormat('d-m-Y', $filters['for_month'], 'Asia/Kolkata');
+            $query->whereRaw($this->monthKey('for_month').' = ?', [$month->format('Ym')]);
+        }
+
+        if (! empty($filters['from_date'])) {
+            $from = Carbon::createFromFormat('d-m-Y', $filters['from_date'], 'Asia/Kolkata');
+            $query->whereRaw($this->dayKey('deposited_on').' >= ?', [$from->format('Ymd')]);
+        }
+
+        if (! empty($filters['to_date'])) {
+            $to = Carbon::createFromFormat('d-m-Y', $filters['to_date'], 'Asia/Kolkata');
+            $query->whereRaw($this->dayKey('deposited_on').' <= ?', [$to->format('Ymd')]);
         }
 
         $total = (float) (clone $query)->sum('amount');
@@ -214,6 +248,34 @@ class DepositController extends Controller
         }
 
         return $deposit;
+    }
+
+    private function dayKey(string $column): string
+    {
+        return $this->dateKey($column, true);
+    }
+
+    private function monthKey(string $column): string
+    {
+        return $this->dateKey($column, false);
+    }
+
+    private function dateKey(string $column, bool $withDay): string
+    {
+        if (! in_array($column, ['deposited_on', 'for_month'], true)) {
+            throw new \InvalidArgumentException('Unexpected deposit date column.');
+        }
+
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'sqlite') {
+            $month = "substr({$column}, 7, 4) || substr({$column}, 4, 2)";
+
+            return $withDay ? "({$month} || substr({$column}, 1, 2))" : "({$month})";
+        }
+
+        $month = "CONCAT(SUBSTRING({$column}, 7, 4), SUBSTRING({$column}, 4, 2))";
+
+        return $withDay ? "CONCAT({$month}, SUBSTRING({$column}, 1, 2))" : $month;
     }
 
     private function monthDate(string $depositType, string $depositedOn): ?string
