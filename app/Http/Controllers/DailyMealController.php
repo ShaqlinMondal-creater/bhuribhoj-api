@@ -25,14 +25,7 @@ class DailyMealController extends Controller
 
         if ($blank = $this->blankMessResponse($actor, [
             'meal_date' => now()->toDateString(),
-            'summary' => [
-                'breakfast_active' => 0,
-                'breakfast_taken' => 0,
-                'lunch_active' => 0,
-                'lunch_taken' => 0,
-                'dinner_active' => 0,
-                'dinner_taken' => 0,
-            ],
+            'summary' => $this->mealSummary(collect()),
             'data' => [],
         ])) {
             return $blank;
@@ -87,14 +80,7 @@ class DailyMealController extends Controller
         return response()->json([
             'meal_date' => $mealDate,
             'meals' => $active,
-            'summary' => [
-                'breakfast_active' => $rows->where('breakfast_active', true)->count(),
-                'breakfast_taken' => $rows->where('breakfast_taken', true)->count(),
-                'lunch_active' => $rows->where('lunch_active', true)->count(),
-                'lunch_taken' => $rows->where('lunch_taken', true)->count(),
-                'dinner_active' => $rows->where('dinner_active', true)->count(),
-                'dinner_taken' => $rows->where('dinner_taken', true)->count(),
-            ],
+            'summary' => $this->mealSummary($rows),
             'data' => $rows,
         ]);
     }
@@ -104,17 +90,18 @@ class DailyMealController extends Controller
         $actor = $request->user();
         $messId = $this->resolveMessId($actor, $request);
 
-        $data = $request->validate([
+        $rules = [
             'meal_date' => ['required', 'date'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.user_id' => ['required', 'integer', Rule::exists('users', 'id')],
-            'items.*.breakfast_active' => ['sometimes', 'boolean'],
-            'items.*.breakfast_taken' => ['sometimes', 'boolean'],
-            'items.*.lunch_active' => ['sometimes', 'boolean'],
-            'items.*.lunch_taken' => ['sometimes', 'boolean'],
-            'items.*.dinner_active' => ['sometimes', 'boolean'],
-            'items.*.dinner_taken' => ['sometimes', 'boolean'],
-        ]);
+        ];
+
+        foreach (MessMealModel::TYPES as $meal) {
+            $rules['items.*.'.$meal.'_active'] = ['sometimes', 'boolean'];
+            $rules['items.*.'.$meal.'_taken'] = ['sometimes', 'boolean'];
+        }
+
+        $data = $request->validate($rules);
 
         $saved = DB::transaction(function () use ($data, $messId, $actor) {
             $out = [];
@@ -147,15 +134,7 @@ class DailyMealController extends Controller
                         'user_id' => $member->id,
                         'meal_date' => $data['meal_date'],
                     ],
-                    [
-                        'breakfast_active' => array_key_exists('breakfast_active', $item) ? $item['breakfast_active'] : ($existing->breakfast_active ?? false),
-                        'breakfast_taken' => array_key_exists('breakfast_taken', $item) ? $item['breakfast_taken'] : ($existing->breakfast_taken ?? false),
-                        'lunch_active' => array_key_exists('lunch_active', $item) ? $item['lunch_active'] : ($existing->lunch_active ?? false),
-                        'lunch_taken' => array_key_exists('lunch_taken', $item) ? $item['lunch_taken'] : ($existing->lunch_taken ?? false),
-                        'dinner_active' => array_key_exists('dinner_active', $item) ? $item['dinner_active'] : ($existing->dinner_active ?? false),
-                        'dinner_taken' => array_key_exists('dinner_taken', $item) ? $item['dinner_taken'] : ($existing->dinner_taken ?? false),
-                        'marked_by' => $actor->id,
-                    ]
+                    $this->mealFlags($item, $existing, (int) $actor->id)
                 );
 
                 $out[] = $row->load('user:id,name,member_code,room_no,role');
@@ -185,5 +164,31 @@ class DailyMealController extends Controller
         return response()->json([
             'message' => 'Daily meal deleted.',
         ]);
+    }
+
+    private function mealSummary($rows): array
+    {
+        $summary = [];
+
+        foreach (MessMealModel::TYPES as $meal) {
+            $summary[$meal.'_active'] = $rows->where($meal.'_active', true)->count();
+            $summary[$meal.'_taken'] = $rows->where($meal.'_taken', true)->count();
+        }
+
+        return $summary;
+    }
+
+    private function mealFlags(array $item, ?DailyMealModel $existing, int $actorId): array
+    {
+        $flags = ['marked_by' => $actorId];
+
+        foreach (MessMealModel::TYPES as $meal) {
+            foreach (['active', 'taken'] as $kind) {
+                $key = $meal.'_'.$kind;
+                $flags[$key] = array_key_exists($key, $item) ? $item[$key] : ($existing?->{$key} ?? false);
+            }
+        }
+
+        return $flags;
     }
 }

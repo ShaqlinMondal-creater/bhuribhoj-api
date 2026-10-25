@@ -13,7 +13,7 @@ return new class extends Migration
             Schema::create('mess_meals', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('mess_id')->constrained('messes')->cascadeOnDelete();
-                $table->enum('meals_type', ['breakfast', 'lunch', 'dinner']);
+                $table->enum('meals_type', ['breakfast', 'morning_snack', 'lunch', 'evening_snack', 'dinner', 'late_night']);
                 $table->foreignId('added_by')->nullable()->constrained('users')->nullOnDelete();
                 $table->enum('status', ['active', 'inactive'])->default('active');
                 $table->timestamps();
@@ -29,7 +29,7 @@ return new class extends Migration
                 ? $mess->president_user_id
                 : null;
 
-            foreach (['breakfast' => 'inactive', 'lunch' => 'active', 'dinner' => 'active'] as $type => $status) {
+            foreach (['breakfast' => 'inactive', 'morning_snack' => 'inactive', 'lunch' => 'active', 'evening_snack' => 'inactive', 'dinner' => 'active', 'late_night' => 'inactive'] as $type => $status) {
                 $exists = DB::table('mess_meals')
                     ->where('mess_id', $mess->id)
                     ->where('meals_type', $type)
@@ -58,8 +58,8 @@ return new class extends Migration
         }
 
         if (Schema::hasTable('meal_aways')) {
-            DB::statement("ALTER TABLE meal_aways MODIFY from_meal ENUM('breakfast','lunch','dinner') NOT NULL");
-            DB::statement("ALTER TABLE meal_aways MODIFY to_meal ENUM('breakfast','lunch','dinner') NULL");
+            DB::statement("ALTER TABLE meal_aways MODIFY from_meal ENUM('breakfast','morning_snack','lunch','evening_snack','dinner','late_night') NOT NULL");
+            DB::statement("ALTER TABLE meal_aways MODIFY to_meal ENUM('breakfast','morning_snack','lunch','evening_snack','dinner','late_night') NULL");
         }
     }
 

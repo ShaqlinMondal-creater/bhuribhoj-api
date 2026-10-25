@@ -13,9 +13,9 @@ return new class extends Migration
             $table->foreignId('mess_id')->constrained('messes')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->date('from_date');
-            $table->enum('from_meal', ['breakfast', 'lunch', 'dinner']);
+            $table->enum('from_meal', ['breakfast', 'morning_snack', 'lunch', 'evening_snack', 'dinner', 'late_night']);
             $table->date('to_date')->nullable();
-            $table->enum('to_meal', ['breakfast', 'lunch', 'dinner'])->nullable();
+            $table->enum('to_meal', ['breakfast', 'morning_snack', 'lunch', 'evening_snack', 'dinner', 'late_night'])->nullable();
             $table->string('note', 255)->nullable();
             $table->foreignId('set_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();

@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
 use App\Models\DailyMenuModel;
+use App\Models\MessMealModel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class DailyMenuController extends Controller
 {
@@ -26,7 +28,7 @@ class DailyMenuController extends Controller
             'menu_date' => ['sometimes', 'nullable', 'date'],
             'from_date' => ['sometimes', 'nullable', 'date'],
             'to_date' => ['sometimes', 'nullable', 'date'],
-            'meal_type' => ['sometimes', 'nullable', Rule::in(['lunch', 'dinner'])],
+            'meal_type' => ['sometimes', 'nullable', Rule::in(MessMealModel::TYPES)],
             'search' => ['sometimes', 'nullable', 'string', 'max:120'],
         ]);
 
@@ -68,9 +70,15 @@ class DailyMenuController extends Controller
 
         $data = $request->validate([
             'menu_date' => ['required', 'date'],
-            'meal_type' => ['required', Rule::in(['lunch', 'dinner'])],
+            'meal_type' => ['required', Rule::in(MessMealModel::TYPES)],
             'dishes' => ['required', 'string', 'max:2000'],
         ]);
+
+        if (! in_array($data['meal_type'], MessMealModel::activeTypes($messId), true)) {
+            throw ValidationException::withMessages([
+                'meal_type' => ['Turn this meal on in Meal setup first.'],
+            ]);
+        }
 
         $menu = DailyMenuModel::query()->updateOrCreate(
             [

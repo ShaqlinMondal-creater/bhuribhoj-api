@@ -50,9 +50,9 @@ class MealAttendance
             }
 
             if (! $row->exists) {
-                $row->breakfast_taken = false;
-                $row->lunch_taken = false;
-                $row->dinner_taken = false;
+                foreach (MessMealModel::TYPES as $meal) {
+                    $row->{$meal.'_taken'} = false;
+                }
             }
 
             $row->save();
@@ -121,12 +121,12 @@ class MealAttendance
 
     public static function locked(string $date, string $meal): bool
     {
-        $cutoff = match ($meal) {
-            'dinner' => '17:50',
-            'breakfast' => '07:00',
-            default => '05:00',
-        };
-        $moment = Carbon::parse($date.' '.$cutoff, 'Asia/Kolkata');
+        if ($meal === 'late_night') {
+            $moment = Carbon::parse($date, 'Asia/Kolkata')->addDay()->startOfDay();
+        } else {
+            $cutoff = MessMealModel::LOCKS[$meal] ?? '12:00';
+            $moment = Carbon::parse($date.' '.$cutoff, 'Asia/Kolkata');
+        }
 
         return self::now()->greaterThanOrEqualTo($moment);
     }
@@ -169,13 +169,7 @@ class MealAttendance
 
     public static function point(string $date, string $meal): string
     {
-        $rank = match ($meal) {
-            'breakfast' => '0',
-            'dinner' => '2',
-            default => '1',
-        };
-
-        return $date.' '.$rank;
+        return $date.' '.(MessMealModel::RANKS[$meal] ?? '2');
     }
 
     public static function openEnd(): string
@@ -185,11 +179,7 @@ class MealAttendance
 
     private static function lockedMessage(string $date, string $meal): string
     {
-        $label = match ($meal) {
-            'breakfast' => 'Breakfast',
-            'dinner' => 'Dinner',
-            default => 'Lunch',
-        };
+        $label = MessMealModel::LABELS[$meal] ?? 'Lunch';
         $when = Carbon::parse($date, 'Asia/Kolkata')->format('j M Y');
 
         return "{$label} on {$when} is already locked.";
