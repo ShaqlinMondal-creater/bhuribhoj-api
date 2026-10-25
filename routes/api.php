@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DailyMealController;
+use App\Http\Controllers\MealAwayController;
 use App\Http\Controllers\DailyMenuController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
@@ -101,6 +102,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::delete('/{id}/delete', [DailyMealController::class, 'dailyMealsDelete']);
             });
 
+            Route::prefix('meal-aways')->group(function () {
+                Route::post('/fetch', [MealAwayController::class, 'mealAwaysFetch']);
+                Route::post('/save', [MealAwayController::class, 'mealAwaysSave']);
+                Route::delete('/{id}/delete', [MealAwayController::class, 'mealAwaysDelete']);
+            });
+
             Route::prefix('daily-menus')->group(function () {
                 Route::post('/fetch', [DailyMenuController::class, 'dailyMenusFetch']);
                 Route::post('/create', [DailyMenuController::class, 'dailyMenusCreate']);
@@ -162,6 +169,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::delete('/{id}/delete', [DailyMealController::class, 'dailyMealsDelete']);
             });
 
+            Route::prefix('meal-aways')->group(function () {
+                Route::post('/fetch', [MealAwayController::class, 'mealAwaysFetch']);
+                Route::post('/save', [MealAwayController::class, 'mealAwaysSave']);
+                Route::delete('/{id}/delete', [MealAwayController::class, 'mealAwaysDelete']);
+            });
+
             Route::prefix('daily-menus')->group(function () {
                 Route::post('/fetch', [DailyMenuController::class, 'dailyMenusFetch']);
                 Route::post('/create', [DailyMenuController::class, 'dailyMenusCreate']);
@@ -190,6 +203,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::delete('/{id}/delete', [DailyMealController::class, 'dailyMealsDelete']);
             });
 
+            Route::prefix('meal-aways')->group(function () {
+                Route::post('/fetch', [MealAwayController::class, 'mealAwaysFetch']);
+                Route::post('/save', [MealAwayController::class, 'mealAwaysSave']);
+                Route::delete('/{id}/delete', [MealAwayController::class, 'mealAwaysDelete']);
+            });
+
             Route::prefix('daily-menus')->group(function () {
                 Route::post('/fetch', [DailyMenuController::class, 'dailyMenusFetch']);
                 Route::post('/create', [DailyMenuController::class, 'dailyMenusCreate']);
@@ -215,6 +234,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::prefix('daily-meals')->group(function () {
                 Route::post('/fetch', [DailyMealController::class, 'dailyMealsFetch']);
                 Route::post('/save', [DailyMealController::class, 'dailyMealsSave']);
+            });
+
+            Route::prefix('meal-aways')->group(function () {
+                Route::post('/fetch', [MealAwayController::class, 'mealAwaysFetch']);
+                Route::post('/save', [MealAwayController::class, 'mealAwaysSave']);
+                Route::delete('/{id}/delete', [MealAwayController::class, 'mealAwaysDelete']);
             });
 
             Route::post('/daily-menus/fetch', [DailyMenuController::class, 'dailyMenusFetch']);

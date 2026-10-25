@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
 use App\Models\DailyMealModel;
+use App\Models\MealAwayModel;
 use App\Models\UserModel;
+use App\Support\MealAttendance;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,20 +42,33 @@ class DailyMealController extends Controller
             'user_id' => ['sometimes', 'integer'],
         ]);
 
-        $mealDate = $data['meal_date'] ?? now()->toDateString();
+        $mealDate = Carbon::parse($data['meal_date'] ?? now())->timezone('Asia/Kolkata')->toDateString();
+        MealAttendance::sync($messId, $mealDate);
+
+        $aways = MealAwayModel::query()
+            ->where('mess_id', $messId)
+            ->whereDate('from_date', '<=', $mealDate)
+            ->where(function ($query) use ($mealDate) {
+                $query->whereNull('to_date')->orWhereDate('to_date', '>=', $mealDate);
+            })
+            ->get()
+            ->groupBy('user_id');
 
         $query = DailyMealModel::query()
             ->with(['user:id,name,member_code,room_no,role'])
             ->where('mess_id', $messId)
             ->whereDate('meal_date', $mealDate);
 
-        if ($actor->role === 'member') {
-            $query->where('user_id', $actor->id);
-        } elseif (! empty($data['user_id'])) {
+        if (! empty($data['user_id'])) {
             $query->where('user_id', $data['user_id']);
         }
 
-        $rows = $query->orderBy('user_id')->get();
+        $rows = $query->orderBy('user_id')->get()->map(function (DailyMealModel $row) use ($aways, $mealDate) {
+            $mine = $aways->get($row->user_id, collect());
+            $row->setAttribute('away', MealAttendance::covers($mine, $mealDate, 'lunch') || MealAttendance::covers($mine, $mealDate, 'dinner'));
+
+            return $row;
+        });
 
         return response()->json([
             'meal_date' => $mealDate,
