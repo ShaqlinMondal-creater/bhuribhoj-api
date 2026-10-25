@@ -12,6 +12,7 @@ use App\Models\UserModel;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -58,6 +59,7 @@ class DashboardController extends Controller
         }
 
         $messId = $this->resolveMessId($actor, $request);
+        [$rangeStart, $rangeEnd] = $this->chartRange($request);
 
         $messDeposits = (float) DepositModel::query()->where('mess_id', $messId)->sum('amount');
         $messExpenses = (float) ExpenseEntryModel::query()->where('mess_id', $messId)->sum('amount');
@@ -100,7 +102,7 @@ class DashboardController extends Controller
                 'mess_fund' => round($messFund, 2),
                 'balance' => round($messDeposits - $messExpenses, 2),
             ],
-            'chart' => $this->chart($messId, $now, $mealColumns),
+            'chart' => $this->chart($messId, $rangeStart, $rangeEnd, $mealColumns),
             'my_totals' => [
                 'total_deposit' => round($myDeposits, 2),
                 'month_deposit' => round($monthDeposit, 2),
@@ -111,14 +113,48 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function chart(int $messId, Carbon $now, array $mealColumns): array
+    private function chartRange(Request $request): array
     {
-        $start = $now->copy()->startOfMonth();
-        $points = [];
+        $data = $request->validate([
+            'from_date' => ['sometimes', 'nullable', 'date'],
+            'to_date' => ['sometimes', 'nullable', 'date'],
+        ]);
 
-        for ($cursor = $start->copy(); $cursor->lte($now); $cursor->addDay()) {
+        $today = Carbon::now('Asia/Kolkata')->startOfDay();
+        $start = empty($data['from_date'])
+            ? $today->copy()->startOfMonth()
+            : Carbon::parse($data['from_date'], 'Asia/Kolkata')->startOfDay();
+        $end = empty($data['to_date'])
+            ? $today->copy()
+            : Carbon::parse($data['to_date'], 'Asia/Kolkata')->startOfDay();
+
+        if ($end->gt($today)) {
+            $end = $today->copy();
+        }
+
+        if ($end->lt($start)) {
+            throw ValidationException::withMessages([
+                'to_date' => ['The end date must be on or after the start date.'],
+            ]);
+        }
+
+        if (abs($start->diffInDays($end)) > 92) {
+            throw ValidationException::withMessages([
+                'to_date' => ['Choose a range of 92 days or less.'],
+            ]);
+        }
+
+        return [$start, $end];
+    }
+
+    private function chart(int $messId, Carbon $start, Carbon $end, array $mealColumns): array
+    {
+        $points = [];
+        $sameMonth = $start->format('Y-m') === $end->format('Y-m');
+
+        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
             $points[$cursor->toDateString()] = [
-                'label' => $cursor->format('j'),
+                'label' => $sameMonth ? $cursor->format('j') : $cursor->format('j M'),
                 'deposits' => 0.0,
                 'expenses' => 0.0,
                 'balance' => 0.0,
@@ -142,7 +178,7 @@ class DashboardController extends Controller
         $expenses = DB::table('expense_entries')
             ->where('mess_id', $messId)
             ->whereDate('spent_on', '>=', $start->toDateString())
-            ->whereDate('spent_on', '<=', $now->toDateString())
+            ->whereDate('spent_on', '<=', $end->toDateString())
             ->selectRaw("DATE_FORMAT(spent_on, '%Y-%m-%d') as day, SUM(amount) as total")
             ->groupBy('day')
             ->get();
@@ -173,7 +209,7 @@ class DashboardController extends Controller
             $rows = DailyMealModel::query()
                 ->where('mess_id', $messId)
                 ->whereDate('meal_date', '>=', $start->toDateString())
-                ->whereDate('meal_date', '<=', $now->toDateString())
+                ->whereDate('meal_date', '<=', $end->toDateString())
                 ->get($this->mealSelect($mealColumns));
 
             foreach ($rows as $row) {
