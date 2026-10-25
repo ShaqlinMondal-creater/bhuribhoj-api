@@ -110,6 +110,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::prefix('expenses')->group(function () {
                 Route::post('/fetch', [ExpenseController::class, 'expensesFetch']);
                 Route::post('/create', [ExpenseController::class, 'expensesCreate']);
+                Route::post('/update', [ExpenseController::class, 'expensesUpdate']);
                 Route::delete('/{id}/delete', [ExpenseController::class, 'expensesDelete']);
             });
         });
@@ -170,6 +171,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::prefix('expenses')->group(function () {
                 Route::post('/fetch', [ExpenseController::class, 'expensesFetch']);
                 Route::post('/create', [ExpenseController::class, 'expensesCreate']);
+                Route::post('/update', [ExpenseController::class, 'expensesUpdate']);
                 Route::delete('/{id}/delete', [ExpenseController::class, 'expensesDelete']);
             });
 
@@ -197,6 +199,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::prefix('expenses')->group(function () {
                 Route::post('/fetch', [ExpenseController::class, 'expensesFetch']);
                 Route::post('/create', [ExpenseController::class, 'expensesCreate']);
+                Route::post('/update', [ExpenseController::class, 'expensesUpdate']);
                 Route::delete('/{id}/delete', [ExpenseController::class, 'expensesDelete']);
             });
 
