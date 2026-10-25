@@ -100,7 +100,7 @@ class DashboardController extends Controller
                 'mess_fund' => round($messFund, 2),
                 'balance' => round($messDeposits - $messExpenses, 2),
             ],
-            'chart' => $this->chart($messId, $now),
+            'chart' => $this->chart($messId, $now, $mealColumns),
             'my_totals' => [
                 'total_deposit' => round($myDeposits, 2),
                 'month_deposit' => round($monthDeposit, 2),
@@ -111,42 +111,76 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function chart(int $messId, Carbon $now): array
+    private function chart(int $messId, Carbon $now, array $mealColumns): array
     {
-        $start = $now->copy()->startOfMonth()->subMonths(5);
+        $start = $now->copy()->startOfMonth();
         $points = [];
 
-        for ($cursor = $start->copy(); $cursor->lte($now); $cursor->addMonth()) {
-            $points[$cursor->format('Y-m')] = [
-                'label' => $cursor->format('M'),
+        for ($cursor = $start->copy(); $cursor->lte($now); $cursor->addDay()) {
+            $points[$cursor->toDateString()] = [
+                'label' => $cursor->format('j'),
                 'deposits' => 0.0,
                 'expenses' => 0.0,
+                'balance' => 0.0,
+                'meals' => 0,
             ];
         }
 
         $deposits = DB::table('deposits')
             ->where('mess_id', $messId)
             ->whereNotNull('deposited_on')
-            ->selectRaw("DATE_FORMAT(STR_TO_DATE(deposited_on, '%d-%m-%Y'), '%Y-%m') as ym, SUM(amount) as total")
-            ->groupBy('ym')
+            ->selectRaw("DATE_FORMAT(STR_TO_DATE(deposited_on, '%d-%m-%Y'), '%Y-%m-%d') as day, SUM(amount) as total")
+            ->groupBy('day')
             ->get();
 
         foreach ($deposits as $row) {
-            if (isset($points[$row->ym])) {
-                $points[$row->ym]['deposits'] = round((float) $row->total, 2);
+            if (isset($points[$row->day])) {
+                $points[$row->day]['deposits'] = round((float) $row->total, 2);
             }
         }
 
         $expenses = DB::table('expense_entries')
             ->where('mess_id', $messId)
             ->whereDate('spent_on', '>=', $start->toDateString())
-            ->selectRaw("DATE_FORMAT(spent_on, '%Y-%m') as ym, SUM(amount) as total")
-            ->groupBy('ym')
+            ->whereDate('spent_on', '<=', $now->toDateString())
+            ->selectRaw("DATE_FORMAT(spent_on, '%Y-%m-%d') as day, SUM(amount) as total")
+            ->groupBy('day')
             ->get();
 
         foreach ($expenses as $row) {
-            if (isset($points[$row->ym])) {
-                $points[$row->ym]['expenses'] = round((float) $row->total, 2);
+            if (isset($points[$row->day])) {
+                $points[$row->day]['expenses'] = round((float) $row->total, 2);
+            }
+        }
+
+        $opening = (float) DB::table('deposits')
+            ->where('mess_id', $messId)
+            ->whereRaw("STR_TO_DATE(deposited_on, '%d-%m-%Y') < ?", [$start->toDateString()])
+            ->sum('amount');
+        $opening -= (float) DB::table('expense_entries')
+            ->where('mess_id', $messId)
+            ->whereDate('spent_on', '<', $start->toDateString())
+            ->sum('amount');
+
+        $running = $opening;
+
+        foreach ($points as $day => $point) {
+            $running += $point['deposits'] - $point['expenses'];
+            $points[$day]['balance'] = round($running, 2);
+        }
+
+        if ($mealColumns !== [] && Schema::hasTable('daily_meals')) {
+            $rows = DailyMealModel::query()
+                ->where('mess_id', $messId)
+                ->whereDate('meal_date', '>=', $start->toDateString())
+                ->whereDate('meal_date', '<=', $now->toDateString())
+                ->get($this->mealSelect($mealColumns));
+
+            foreach ($rows as $row) {
+                $day = $row->meal_date?->toDateString();
+                if ($day && isset($points[$day])) {
+                    $points[$day]['meals'] += $this->mealCount([$row], $mealColumns);
+                }
             }
         }
 
