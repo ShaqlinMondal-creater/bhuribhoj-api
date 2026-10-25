@@ -34,6 +34,7 @@ class DashboardController extends Controller
                 'balance' => 0,
             ],
             'chart' => [],
+            'activity' => [],
             'my_totals' => [
                 'total_deposit' => 0,
                 'month_deposit' => 0,
@@ -93,6 +94,8 @@ class DashboardController extends Controller
             return $date !== null && $date >= $monthStart && $date <= $monthEnd;
         });
 
+        $changes = $this->periodChanges($messId, $now);
+
         return response()->json([
             'user' => $actor->load('mess:id,name,code,fund_type'),
             'mess_totals' => [
@@ -101,8 +104,12 @@ class DashboardController extends Controller
                 'manager_fund' => round($managerFund, 2),
                 'mess_fund' => round($messFund, 2),
                 'balance' => round($messDeposits - $messExpenses, 2),
+                'deposit_change' => $changes['deposits'],
+                'expense_change' => $changes['expenses'],
+                'balance_change' => $changes['balance'],
             ],
             'chart' => $this->chart($messId, $rangeStart, $rangeEnd, $mealColumns),
+            'activity' => $this->recentActivity($messId),
             'my_totals' => [
                 'total_deposit' => round($myDeposits, 2),
                 'month_deposit' => round($monthDeposit, 2),
@@ -145,6 +152,106 @@ class DashboardController extends Controller
         }
 
         return [$start, $end];
+    }
+
+    private function periodChanges(int $messId, Carbon $now): array
+    {
+        $day = (int) $now->format('j');
+        $thisStart = $now->copy()->startOfMonth();
+        $thisEnd = $now->copy()->startOfDay();
+        $prevStart = $now->copy()->subMonthNoOverflow()->startOfMonth();
+        $prevEnd = $prevStart->copy()->addDays(min($day, $prevStart->daysInMonth) - 1);
+
+        $thisDeposits = $this->depositSum($messId, $thisStart, $thisEnd);
+        $prevDeposits = $this->depositSum($messId, $prevStart, $prevEnd);
+        $thisExpenses = $this->expenseSum($messId, $thisStart, $thisEnd);
+        $prevExpenses = $this->expenseSum($messId, $prevStart, $prevEnd);
+
+        return [
+            'deposits' => $this->percentChange($thisDeposits, $prevDeposits),
+            'expenses' => $this->percentChange($thisExpenses, $prevExpenses),
+            'balance' => $this->percentChange($thisDeposits - $thisExpenses, $prevDeposits - $prevExpenses),
+        ];
+    }
+
+    private function depositSum(int $messId, Carbon $start, Carbon $end): float
+    {
+        return (float) DB::table('deposits')
+            ->where('mess_id', $messId)
+            ->whereRaw("STR_TO_DATE(deposited_on, '%d-%m-%Y') >= ?", [$start->toDateString()])
+            ->whereRaw("STR_TO_DATE(deposited_on, '%d-%m-%Y') <= ?", [$end->toDateString()])
+            ->sum('amount');
+    }
+
+    private function expenseSum(int $messId, Carbon $start, Carbon $end): float
+    {
+        return (float) DB::table('expense_entries')
+            ->where('mess_id', $messId)
+            ->whereDate('spent_on', '>=', $start->toDateString())
+            ->whereDate('spent_on', '<=', $end->toDateString())
+            ->sum('amount');
+    }
+
+    private function percentChange(float $current, float $previous): ?int
+    {
+        if (abs($previous) < 0.005) {
+            return null;
+        }
+
+        return (int) round((($current - $previous) / abs($previous)) * 100);
+    }
+
+    private function recentActivity(int $messId): array
+    {
+        $rows = [];
+
+        foreach (DepositModel::query()->where('mess_id', $messId)->orderByDesc('id')->limit(8)->get() as $row) {
+            $rows[] = [
+                'kind' => 'deposit',
+                'date' => (string) $row->deposited_on,
+                'sort' => $this->activitySort((string) $row->deposited_on, (int) $row->id),
+                'title' => $row->note ?: $this->depositTitle((string) $row->deposit_type),
+                'amount' => round((float) $row->amount, 2),
+            ];
+        }
+
+        foreach (ExpenseEntryModel::query()->where('mess_id', $messId)->orderByDesc('id')->limit(8)->get() as $row) {
+            $date = $row->spent_on?->format('d-m-Y') ?? '';
+            $rows[] = [
+                'kind' => 'expense',
+                'date' => $date,
+                'sort' => $this->activitySort($date, (int) $row->id),
+                'title' => $row->title ?: ($row->note ?: ucfirst((string) $row->category)),
+                'amount' => round((float) $row->amount, 2),
+            ];
+        }
+
+        usort($rows, fn (array $left, array $right) => strcmp($right['sort'], $left['sort']));
+
+        return array_map(function (array $row) {
+            unset($row['sort']);
+
+            return $row;
+        }, array_slice($rows, 0, 6));
+    }
+
+    private function depositTitle(string $type): string
+    {
+        return match ($type) {
+            'monthly' => 'Monthly mess deposit',
+            'join' => 'Join deposit',
+            'extra' => 'Extra deposit',
+            default => 'Member deposit',
+        };
+    }
+
+    private function activitySort(string $date, int $id): string
+    {
+        if (preg_match('/^(\d{2})-(\d{2})-(\d{4})$/', $date, $match)) {
+            return $match[3].$match[2].$match[1].str_pad((string) $id, 8, '0', STR_PAD_LEFT);
+        }
+
+        return '00000000'.str_pad((string) $id, 8, '0', STR_PAD_LEFT);
     }
 
     private function chart(int $messId, Carbon $start, Carbon $end, array $mealColumns): array
