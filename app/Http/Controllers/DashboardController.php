@@ -108,7 +108,7 @@ class DashboardController extends Controller
                 'expense_change' => $changes['expenses'],
                 'balance_change' => $changes['balance'],
             ],
-            'chart' => $this->chart($messId, $rangeStart, $rangeEnd, $mealColumns),
+            'chart' => $this->chart($messId, (int) $actor->id, $rangeStart, $rangeEnd, $mealColumns),
             'activity' => $this->recentActivity($messId),
             'my_totals' => [
                 'total_deposit' => round($myDeposits, 2),
@@ -254,7 +254,7 @@ class DashboardController extends Controller
         return '00000000'.str_pad((string) $id, 8, '0', STR_PAD_LEFT);
     }
 
-    private function chart(int $messId, Carbon $start, Carbon $end, array $mealColumns): array
+    private function chart(int $messId, int $userId, Carbon $start, Carbon $end, array $mealColumns): array
     {
         $points = [];
         $sameMonth = $start->format('Y-m') === $end->format('Y-m');
@@ -262,7 +262,9 @@ class DashboardController extends Controller
         for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
             $points[$cursor->toDateString()] = [
                 'label' => $sameMonth ? $cursor->format('j') : $cursor->format('j M'),
+                'date' => $cursor->format('j M Y'),
                 'deposits' => 0.0,
+                'mine' => 0.0,
                 'expenses' => 0.0,
                 'balance' => 0.0,
                 'meals' => 0,
@@ -279,6 +281,20 @@ class DashboardController extends Controller
         foreach ($deposits as $row) {
             if (isset($points[$row->day])) {
                 $points[$row->day]['deposits'] = round((float) $row->total, 2);
+            }
+        }
+
+        $mine = DB::table('deposits')
+            ->where('mess_id', $messId)
+            ->where('user_id', $userId)
+            ->whereNotNull('deposited_on')
+            ->selectRaw("DATE_FORMAT(STR_TO_DATE(deposited_on, '%d-%m-%Y'), '%Y-%m-%d') as day, SUM(amount) as total")
+            ->groupBy('day')
+            ->get();
+
+        foreach ($mine as $row) {
+            if (isset($points[$row->day])) {
+                $points[$row->day]['mine'] = round((float) $row->total, 2);
             }
         }
 
