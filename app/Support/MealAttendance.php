@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\DailyMealModel;
 use App\Models\MealAwayModel;
+use App\Models\MessMealModel;
 use App\Models\UserModel;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -30,6 +31,8 @@ class MealAttendance
             ->get()
             ->groupBy('user_id');
 
+        $active = MessMealModel::activeTypes($messId);
+
         foreach ($members as $userId) {
             $mine = $aways->get($userId, collect());
             $row = DailyMealModel::query()->firstOrNew([
@@ -38,15 +41,16 @@ class MealAttendance
                 'meal_date' => $date,
             ]);
 
-            if (! $row->exists || ! self::locked($date, 'lunch')) {
-                $row->lunch_active = ! self::covers($mine, $date, 'lunch');
-            }
+            foreach (MessMealModel::TYPES as $meal) {
+                $served = in_array($meal, $active, true);
 
-            if (! $row->exists || ! self::locked($date, 'dinner')) {
-                $row->dinner_active = ! self::covers($mine, $date, 'dinner');
+                if (! $row->exists || ! self::locked($date, $meal)) {
+                    $row->{$meal.'_active'} = $served && ! self::covers($mine, $date, $meal);
+                }
             }
 
             if (! $row->exists) {
+                $row->breakfast_taken = false;
                 $row->lunch_taken = false;
                 $row->dinner_taken = false;
             }
@@ -76,6 +80,14 @@ class MealAttendance
 
     public static function assertUnlocked(Collection $before, Collection $after): void
     {
+        $sample = $before->first() ?? $after->first();
+
+        if (! $sample) {
+            return;
+        }
+
+        $messId = (int) ($sample->mess_id ?? 0);
+        $meals = $messId > 0 ? MessMealModel::activeTypes($messId) : ['lunch', 'dinner'];
         $start = self::now()->startOfDay();
         $today = $start->copy();
 
@@ -93,7 +105,7 @@ class MealAttendance
         for ($day = $start->copy(); $day->lte($today); $day->addDay()) {
             $date = $day->toDateString();
 
-            foreach (['lunch', 'dinner'] as $meal) {
+            foreach ($meals as $meal) {
                 if (! self::locked($date, $meal)) {
                     continue;
                 }
@@ -109,7 +121,11 @@ class MealAttendance
 
     public static function locked(string $date, string $meal): bool
     {
-        $cutoff = $meal === 'dinner' ? '17:50' : '05:00';
+        $cutoff = match ($meal) {
+            'dinner' => '17:50',
+            'breakfast' => '07:00',
+            default => '05:00',
+        };
         $moment = Carbon::parse($date.' '.$cutoff, 'Asia/Kolkata');
 
         return self::now()->greaterThanOrEqualTo($moment);
@@ -151,14 +167,29 @@ class MealAttendance
         return Carbon::parse($value)->timezone('Asia/Kolkata')->toDateString();
     }
 
-    private static function point(string $date, string $meal): string
+    public static function point(string $date, string $meal): string
     {
-        return $date.' '.($meal === 'dinner' ? '1' : '0');
+        $rank = match ($meal) {
+            'breakfast' => '0',
+            'dinner' => '2',
+            default => '1',
+        };
+
+        return $date.' '.$rank;
+    }
+
+    public static function openEnd(): string
+    {
+        return '9999-12-31 9';
     }
 
     private static function lockedMessage(string $date, string $meal): string
     {
-        $label = $meal === 'dinner' ? 'Dinner' : 'Lunch';
+        $label = match ($meal) {
+            'breakfast' => 'Breakfast',
+            'dinner' => 'Dinner',
+            default => 'Lunch',
+        };
         $when = Carbon::parse($date, 'Asia/Kolkata')->format('j M Y');
 
         return "{$label} on {$when} is already locked.";

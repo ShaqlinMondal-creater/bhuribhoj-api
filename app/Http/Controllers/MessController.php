@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
 use App\Models\GuestMealSetupModel;
+use App\Models\MessMealModel;
 use App\Models\MessModel;
 use App\Models\MessPmDetailModel;
 use App\Models\MessSubscriptionModel;
@@ -159,6 +160,12 @@ class MessController extends Controller
 
             if ($subscription) {
                 $subscription->forceFill(['mess_id' => $mess->id])->save();
+            }
+
+            MessMealModel::ensure($mess->id);
+
+            if ($presidentId) {
+                MessMealModel::query()->where('mess_id', $mess->id)->update(['added_by' => $presidentId]);
             }
 
             return $mess;

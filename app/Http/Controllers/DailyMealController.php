@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResolvesMessId;
 use App\Models\DailyMealModel;
 use App\Models\MealAwayModel;
+use App\Models\MessMealModel;
 use App\Models\UserModel;
 use App\Support\MealAttendance;
 use Carbon\Carbon;
@@ -25,6 +26,8 @@ class DailyMealController extends Controller
         if ($blank = $this->blankMessResponse($actor, [
             'meal_date' => now()->toDateString(),
             'summary' => [
+                'breakfast_active' => 0,
+                'breakfast_taken' => 0,
                 'lunch_active' => 0,
                 'lunch_taken' => 0,
                 'dinner_active' => 0,
@@ -63,16 +66,30 @@ class DailyMealController extends Controller
             $query->where('user_id', $data['user_id']);
         }
 
-        $rows = $query->orderBy('user_id')->get()->map(function (DailyMealModel $row) use ($aways, $mealDate) {
+        $active = MessMealModel::activeTypes($messId);
+
+        $rows = $query->orderBy('user_id')->get()->map(function (DailyMealModel $row) use ($aways, $mealDate, $active) {
             $mine = $aways->get($row->user_id, collect());
-            $row->setAttribute('away', MealAttendance::covers($mine, $mealDate, 'lunch') || MealAttendance::covers($mine, $mealDate, 'dinner'));
+            $away = false;
+
+            foreach ($active as $meal) {
+                if (MealAttendance::covers($mine, $mealDate, $meal)) {
+                    $away = true;
+                    break;
+                }
+            }
+
+            $row->setAttribute('away', $away);
 
             return $row;
         });
 
         return response()->json([
             'meal_date' => $mealDate,
+            'meals' => $active,
             'summary' => [
+                'breakfast_active' => $rows->where('breakfast_active', true)->count(),
+                'breakfast_taken' => $rows->where('breakfast_taken', true)->count(),
                 'lunch_active' => $rows->where('lunch_active', true)->count(),
                 'lunch_taken' => $rows->where('lunch_taken', true)->count(),
                 'dinner_active' => $rows->where('dinner_active', true)->count(),
@@ -91,6 +108,8 @@ class DailyMealController extends Controller
             'meal_date' => ['required', 'date'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.user_id' => ['required', 'integer', Rule::exists('users', 'id')],
+            'items.*.breakfast_active' => ['sometimes', 'boolean'],
+            'items.*.breakfast_taken' => ['sometimes', 'boolean'],
             'items.*.lunch_active' => ['sometimes', 'boolean'],
             'items.*.lunch_taken' => ['sometimes', 'boolean'],
             'items.*.dinner_active' => ['sometimes', 'boolean'],
@@ -116,6 +135,12 @@ class DailyMealController extends Controller
                     abort(403, 'Members can only update their own meal.');
                 }
 
+                $existing = DailyMealModel::query()
+                    ->where('mess_id', $messId)
+                    ->where('user_id', $member->id)
+                    ->whereDate('meal_date', $data['meal_date'])
+                    ->first();
+
                 $row = DailyMealModel::query()->updateOrCreate(
                     [
                         'mess_id' => $messId,
@@ -123,10 +148,12 @@ class DailyMealController extends Controller
                         'meal_date' => $data['meal_date'],
                     ],
                     [
-                        'lunch_active' => $item['lunch_active'] ?? false,
-                        'lunch_taken' => $item['lunch_taken'] ?? false,
-                        'dinner_active' => $item['dinner_active'] ?? false,
-                        'dinner_taken' => $item['dinner_taken'] ?? false,
+                        'breakfast_active' => array_key_exists('breakfast_active', $item) ? $item['breakfast_active'] : ($existing->breakfast_active ?? false),
+                        'breakfast_taken' => array_key_exists('breakfast_taken', $item) ? $item['breakfast_taken'] : ($existing->breakfast_taken ?? false),
+                        'lunch_active' => array_key_exists('lunch_active', $item) ? $item['lunch_active'] : ($existing->lunch_active ?? false),
+                        'lunch_taken' => array_key_exists('lunch_taken', $item) ? $item['lunch_taken'] : ($existing->lunch_taken ?? false),
+                        'dinner_active' => array_key_exists('dinner_active', $item) ? $item['dinner_active'] : ($existing->dinner_active ?? false),
+                        'dinner_taken' => array_key_exists('dinner_taken', $item) ? $item['dinner_taken'] : ($existing->dinner_taken ?? false),
                         'marked_by' => $actor->id,
                     ]
                 );

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\MessMealModel;
 use App\Models\MessModel;
 use App\Models\MessSubscriptionModel;
 use App\Models\PlanModel;
@@ -124,5 +125,8 @@ class DatabaseSeeder extends Seeder
         }
 
         $member->save();
+
+        MessMealModel::ensure($mess->id);
+        MessMealModel::query()->where('mess_id', $mess->id)->whereNull('added_by')->update(['added_by' => $president->id]);
     }
 }

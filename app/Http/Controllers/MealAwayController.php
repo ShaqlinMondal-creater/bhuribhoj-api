@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
 use App\Models\MealAwayModel;
+use App\Models\MessMealModel;
 use App\Models\UserModel;
 use App\Support\MealAttendance;
 use Carbon\Carbon;
@@ -50,9 +51,9 @@ class MealAwayController extends Controller
             'id' => ['sometimes', 'integer'],
             'user_id' => ['required', 'integer'],
             'from_date' => ['required', 'date'],
-            'from_meal' => ['required', Rule::in(['lunch', 'dinner'])],
+            'from_meal' => ['required', Rule::in(MessMealModel::TYPES)],
             'to_date' => ['nullable', 'date'],
-            'to_meal' => ['nullable', Rule::in(['lunch', 'dinner'])],
+            'to_meal' => ['nullable', Rule::in(MessMealModel::TYPES)],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -82,7 +83,17 @@ class MealAwayController extends Controller
             ]);
         }
 
-        if ($to && $this->point($from, $data['from_meal']) >= $this->point($to, $toMeal)) {
+        $served = MessMealModel::activeTypes($messId);
+
+        foreach (['from_meal' => $data['from_meal'], 'to_meal' => $toMeal] as $field => $meal) {
+            if ($meal && ! in_array($meal, $served, true)) {
+                throw ValidationException::withMessages([
+                    $field => ['This mess does not serve that meal.'],
+                ]);
+            }
+        }
+
+        if ($to && MealAttendance::point($from, $data['from_meal']) >= MealAttendance::point($to, $toMeal)) {
             throw ValidationException::withMessages([
                 'to_date' => ['The return meal must be after the away starts.'],
             ]);
@@ -108,6 +119,7 @@ class MealAwayController extends Controller
         }
 
         $proposed = [
+            'mess_id' => $messId,
             'from_date' => $from,
             'from_meal' => $data['from_meal'],
             'to_date' => $to,
@@ -187,12 +199,12 @@ class MealAwayController extends Controller
             ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
             ->get();
 
-        $start = $this->point($proposed['from_date'], $proposed['from_meal']);
-        $end = $proposed['to_date'] ? $this->point($proposed['to_date'], $proposed['to_meal']) : '9999-12-31 1';
+        $start = MealAttendance::point($proposed['from_date'], $proposed['from_meal']);
+        $end = $proposed['to_date'] ? MealAttendance::point($proposed['to_date'], $proposed['to_meal']) : MealAttendance::openEnd();
 
         foreach ($rows as $row) {
-            $otherStart = $this->point($row->from_date->toDateString(), $row->from_meal);
-            $otherEnd = $row->to_date ? $this->point($row->to_date->toDateString(), $row->to_meal) : '9999-12-31 1';
+            $otherStart = MealAttendance::point($row->from_date->toDateString(), $row->from_meal);
+            $otherEnd = $row->to_date ? MealAttendance::point($row->to_date->toDateString(), $row->to_meal) : MealAttendance::openEnd();
 
             if ($start < $otherEnd && $otherStart < $end) {
                 throw ValidationException::withMessages([
@@ -218,10 +230,5 @@ class MealAwayController extends Controller
                 'member_code' => $row->user->member_code,
             ] : null,
         ];
-    }
-
-    private function point(string $date, string $meal): string
-    {
-        return $date.' '.($meal === 'dinner' ? '1' : '0');
     }
 }

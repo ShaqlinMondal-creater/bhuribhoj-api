@@ -13,6 +13,8 @@ class DailyMealModel extends Model
         'mess_id',
         'user_id',
         'meal_date',
+        'breakfast_active',
+        'breakfast_taken',
         'lunch_active',
         'lunch_taken',
         'dinner_active',
@@ -24,6 +26,8 @@ class DailyMealModel extends Model
     {
         return [
             'meal_date' => 'date',
+            'breakfast_active' => 'boolean',
+            'breakfast_taken' => 'boolean',
             'lunch_active' => 'boolean',
             'lunch_taken' => 'boolean',
             'dinner_active' => 'boolean',
