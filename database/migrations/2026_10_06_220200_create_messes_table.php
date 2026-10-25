@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('district');
             $table->string('pincode', 12);
             $table->string('contact_no', 20);
-            $table->string('email');
+            $table->string('email')->nullable();
             $table->enum('fund_mode', ['manager_only', 'mess_and_manager'])->default('manager_only');
             $table->decimal('guest_chicken_price', 8, 2)->default(90);
             $table->decimal('guest_fish_price', 8, 2)->default(70);

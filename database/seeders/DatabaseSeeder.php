@@ -47,7 +47,7 @@ class DatabaseSeeder extends Seeder
                 'email' => 'paulmess@example.com',
                 'fund_type' => 'mess_and_manager',
                 'monthly_due_amount' => 1500,
-                'monthly_due_date' => '05-10-2026',
+                'monthly_due_days' => 5,
                 'late_fee_amount' => 50,
                 'is_active' => true,
             ],

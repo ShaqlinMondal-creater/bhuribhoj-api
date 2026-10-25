@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Casts\KolkataDate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,7 +27,7 @@ class MessModel extends Model
         'manager_user_id',
         'guest_meal_setup_id',
         'monthly_due_amount',
-        'monthly_due_date',
+        'monthly_due_days',
         's_deposite_amount',
         'late_fee_amount',
         'is_active',
@@ -38,7 +37,7 @@ class MessModel extends Model
     {
         return [
             'monthly_due_amount' => 'decimal:2',
-            'monthly_due_date' => KolkataDate::class,
+            'monthly_due_days' => 'integer',
             's_deposite_amount' => 'decimal:2',
             'late_fee_amount' => 'decimal:2',
             'is_active' => 'boolean',
