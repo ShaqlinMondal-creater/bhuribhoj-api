@@ -24,7 +24,6 @@ class ExpenseEntryModel extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'decimal:2',
             'amount' => 'decimal:2',
             'spent_on' => 'date',
         ];
