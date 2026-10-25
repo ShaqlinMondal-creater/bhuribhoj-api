@@ -132,7 +132,10 @@ class MealAwayController extends Controller
         $after = $before
             ->reject(fn (MealAwayModel $row) => $current && $row->id === $current->id)
             ->concat([(object) $proposed]);
-        MealAttendance::assertUnlocked($before, $after);
+
+        if (! $this->canOverrideLock($actor->role)) {
+            MealAttendance::assertUnlocked($before, $after);
+        }
 
         $row = $current ?? new MealAwayModel;
         $row->fill([
@@ -146,9 +149,9 @@ class MealAwayController extends Controller
             'set_by' => $actor->id,
         ])->save();
 
-        MealAttendance::syncSpan($messId, $from, $to);
+        MealAttendance::syncSpan($messId, $from, $to, true);
         if ($current) {
-            MealAttendance::syncSpan($messId, $current->from_date->toDateString(), $current->to_date?->toDateString());
+            MealAttendance::syncSpan($messId, $current->from_date->toDateString(), $current->to_date?->toDateString(), true);
         }
 
         return response()->json([
@@ -179,12 +182,15 @@ class MealAwayController extends Controller
 
         $before = MealAwayModel::query()->where('mess_id', $messId)->where('user_id', $row->user_id)->get();
         $after = $before->reject(fn (MealAwayModel $item) => $item->id === $row->id)->values();
-        MealAttendance::assertUnlocked($before, $after);
+
+        if (! $this->canOverrideLock($actor->role)) {
+            MealAttendance::assertUnlocked($before, $after);
+        }
 
         $from = $row->from_date->toDateString();
         $to = $row->to_date?->toDateString();
         $row->delete();
-        MealAttendance::syncSpan($messId, $from, $to);
+        MealAttendance::syncSpan($messId, $from, $to, true);
 
         return response()->json([
             'message' => 'Away removed.',
@@ -212,6 +218,11 @@ class MealAwayController extends Controller
                 ]);
             }
         }
+    }
+
+    private function canOverrideLock(string $role): bool
+    {
+        return in_array($role, ['admin', 'president', 'manager'], true);
     }
 
     private function present(MealAwayModel $row): array

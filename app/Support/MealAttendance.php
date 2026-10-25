@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 class MealAttendance
 {
-    public static function sync(int $messId, string $date): void
+    public static function sync(int $messId, string $date, bool $force = false): void
     {
         $date = Carbon::parse($date, 'Asia/Kolkata')->toDateString();
 
@@ -44,7 +44,7 @@ class MealAttendance
             foreach (MessMealModel::TYPES as $meal) {
                 $served = in_array($meal, $active, true);
 
-                if (! $row->exists || ! self::locked($date, $meal)) {
+                if ($force || ! $row->exists || ! self::locked($date, $meal)) {
                     $row->{$meal.'_active'} = $served && ! self::covers($mine, $date, $meal);
                 }
             }
@@ -59,7 +59,7 @@ class MealAttendance
         }
     }
 
-    public static function syncSpan(int $messId, string $from, ?string $to): void
+    public static function syncSpan(int $messId, string $from, ?string $to, bool $force = false): void
     {
         $start = Carbon::parse($from, 'Asia/Kolkata')->startOfDay();
         $today = self::now()->startOfDay();
@@ -74,7 +74,7 @@ class MealAttendance
         }
 
         for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
-            self::sync($messId, $day->toDateString());
+            self::sync($messId, $day->toDateString(), $force);
         }
     }
 
