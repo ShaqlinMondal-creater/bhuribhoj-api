@@ -12,12 +12,14 @@ class MessSubscriptionModel extends Model
     protected $fillable = [
         'mess_id',
         'plan_id',
+        'coupon_id',
         'purchase_source',
         'purchased_by',
         'starts_on',
         'ends_on',
         'status',
         'amount_paid_inr',
+        'discount_inr',
         'razorpay_order_id',
         'razorpay_payment_id',
     ];
@@ -28,6 +30,7 @@ class MessSubscriptionModel extends Model
             'starts_on' => 'date',
             'ends_on' => 'date',
             'amount_paid_inr' => 'integer',
+            'discount_inr' => 'integer',
         ];
     }
 
@@ -39,6 +42,11 @@ class MessSubscriptionModel extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(PlanModel::class, 'plan_id');
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(CouponModel::class, 'coupon_id');
     }
 
     public function purchaser(): BelongsTo

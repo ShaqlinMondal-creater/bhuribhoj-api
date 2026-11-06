@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLogModel;
+use App\Models\CouponModel;
 use App\Models\MessSubscriptionModel;
 use App\Models\PaymentLogModel;
 use App\Models\PlanModel;
@@ -10,6 +11,7 @@ use App\Services\RazorpayService;
 use App\Support\AccountSeat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -128,6 +130,7 @@ class SubscriptionController extends Controller
 
         $data = $request->validate([
             'plan_id' => ['required', 'integer'],
+            'coupon_code' => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
 
         $plan = PlanModel::query()->where('is_active', true)->find($data['plan_id']);
@@ -144,11 +147,17 @@ class SubscriptionController extends Controller
             ]);
         }
 
-        $amountPaise = ((int) $plan->price_inr) * 100;
-        if ($amountPaise < 100) {
-            throw ValidationException::withMessages([
-                'plan_id' => ['This plan amount is too small for Razorpay.'],
-            ]);
+        $listPrice = (int) $plan->price_inr;
+        $discountInr = 0;
+        $coupon = null;
+        $amountInr = $listPrice;
+        $code = trim((string) ($data['coupon_code'] ?? ''));
+
+        if ($code !== '') {
+            $applied = CouponModel::applyToOrder($code, (int) $user->id, $listPrice);
+            $coupon = $applied['coupon'];
+            $discountInr = $applied['discount_inr'];
+            $amountInr = $applied['amount_inr'];
         }
 
         MessSubscriptionModel::query()
@@ -156,10 +165,46 @@ class SubscriptionController extends Controller
             ->where('status', 'pending')
             ->update(['status' => 'cancelled']);
 
+        if ($amountInr === 0) {
+            $subscription = $this->activatePaidSubscription(
+                $user,
+                $plan,
+                0,
+                $discountInr,
+                $coupon?->id,
+                null,
+                null,
+            );
+
+            if ($coupon) {
+                $this->redeemCoupon($coupon, $user->id, $subscription->id, $request->ip());
+            }
+
+            return response()->json([
+                'free' => true,
+                'message' => 'Coupon applied. Subscription is active.',
+                'subscription_id' => $subscription->id,
+                'amount' => 0,
+                'discount_inr' => $discountInr,
+                'coupon_code' => $coupon?->code,
+                'plan' => $plan->only(['id', 'name', 'slug', 'duration_months', 'price_inr']),
+                'subscription' => $subscription->load('plan:id,name,slug,duration_months,price_inr'),
+                'seat' => AccountSeat::for($user->fresh()),
+            ]);
+        }
+
+        $amountPaise = $amountInr * 100;
+        if ($amountPaise < 100) {
+            throw ValidationException::withMessages([
+                'plan_id' => ['The payable amount is too small for Razorpay.'],
+            ]);
+        }
+
         try {
             $order = $this->razorpay->createOrder($amountPaise, Str::limit('bb'.$user->id.'t'.time(), 40, ''), [
                 'user_id' => (string) $user->id,
                 'plan_id' => (string) $plan->id,
+                'coupon' => $coupon?->code ?? '',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 502);
@@ -168,23 +213,28 @@ class SubscriptionController extends Controller
         $subscription = MessSubscriptionModel::query()->create([
             'mess_id' => null,
             'plan_id' => $plan->id,
+            'coupon_id' => $coupon?->id,
             'purchase_source' => 'self_purchase',
             'purchased_by' => $user->id,
             'starts_on' => now()->toDateString(),
             'ends_on' => now()->toDateString(),
             'status' => 'pending',
-            'amount_paid_inr' => $plan->price_inr,
+            'amount_paid_inr' => $amountInr,
+            'discount_inr' => $discountInr,
             'razorpay_order_id' => $order['id'],
         ]);
 
         $this->logPayment($user->id, $subscription, 'created');
 
         return response()->json([
+            'free' => false,
             'key' => $this->razorpay->key(),
             'order_id' => $order['id'],
             'amount' => $order['amount'],
             'currency' => $order['currency'],
             'subscription_id' => $subscription->id,
+            'discount_inr' => $discountInr,
+            'coupon_code' => $coupon?->code,
             'plan' => $plan->only(['id', 'name', 'slug', 'duration_months', 'price_inr']),
         ]);
     }
@@ -276,31 +326,32 @@ class SubscriptionController extends Controller
 
         $plan = PlanModel::query()->findOrFail($subscription->plan_id);
         $paid = (int) ($payment['amount'] ?? 0);
+        $expected = ((int) $subscription->amount_paid_inr) * 100;
         $captured = in_array($payment['status'] ?? '', ['captured', 'authorized'], true);
 
-        if (! $captured || ($payment['order_id'] ?? '') !== $data['razorpay_order_id'] || $paid !== ((int) $plan->price_inr) * 100) {
+        if (! $captured || ($payment['order_id'] ?? '') !== $data['razorpay_order_id'] || $paid !== $expected) {
             $this->logPayment($user->id, $subscription, 'failed', $data['razorpay_payment_id'], 'Razorpay has not captured this payment.');
             throw ValidationException::withMessages([
                 'razorpay_payment_id' => ['Razorpay has not captured this payment.'],
             ]);
         }
 
-        $startsOn = now()->startOfDay();
+        $subscription = $this->activatePaidSubscription(
+            $user,
+            $plan,
+            (int) $subscription->amount_paid_inr,
+            (int) ($subscription->discount_inr ?? 0),
+            $subscription->coupon_id ? (int) $subscription->coupon_id : null,
+            $data['razorpay_payment_id'],
+            $subscription,
+        );
 
-        $subscription->forceFill([
-            'mess_id' => $user->mess_id,
-            'status' => 'active',
-            'razorpay_payment_id' => $data['razorpay_payment_id'],
-            'starts_on' => $startsOn->toDateString(),
-            'ends_on' => $startsOn->copy()->addMonths($plan->duration_months)->toDateString(),
-            'amount_paid_inr' => $plan->price_inr,
-        ])->save();
-
-        MessSubscriptionModel::query()
-            ->where('purchased_by', $user->id)
-            ->where('id', '!=', $subscription->id)
-            ->where('status', 'active')
-            ->update(['status' => 'cancelled']);
+        if ($subscription->coupon_id) {
+            $coupon = CouponModel::query()->find($subscription->coupon_id);
+            if ($coupon) {
+                $this->redeemCoupon($coupon, $user->id, $subscription->id, $request->ip());
+            }
+        }
 
         $this->logPayment($user->id, $subscription, 'paid', $data['razorpay_payment_id']);
 
@@ -309,6 +360,77 @@ class SubscriptionController extends Controller
             'subscription' => $subscription->fresh()->load('plan:id,name,slug,duration_months,price_inr'),
             'seat' => AccountSeat::for($user->fresh()),
         ]);
+    }
+
+    private function activatePaidSubscription(
+        $user,
+        PlanModel $plan,
+        int $amountInr,
+        int $discountInr,
+        ?int $couponId,
+        ?string $paymentId,
+        ?MessSubscriptionModel $existing = null,
+    ): MessSubscriptionModel {
+        $startsOn = now()->startOfDay();
+
+        if ($existing) {
+            $existing->forceFill([
+                'mess_id' => $user->mess_id,
+                'status' => 'active',
+                'razorpay_payment_id' => $paymentId,
+                'starts_on' => $startsOn->toDateString(),
+                'ends_on' => $startsOn->copy()->addMonths($plan->duration_months)->toDateString(),
+                'amount_paid_inr' => $amountInr,
+                'discount_inr' => $discountInr,
+                'coupon_id' => $couponId,
+            ])->save();
+            $subscription = $existing;
+        } else {
+            $subscription = MessSubscriptionModel::query()->create([
+                'mess_id' => $user->mess_id,
+                'plan_id' => $plan->id,
+                'coupon_id' => $couponId,
+                'purchase_source' => 'self_purchase',
+                'purchased_by' => $user->id,
+                'starts_on' => $startsOn->toDateString(),
+                'ends_on' => $startsOn->copy()->addMonths($plan->duration_months)->toDateString(),
+                'status' => 'active',
+                'amount_paid_inr' => $amountInr,
+                'discount_inr' => $discountInr,
+                'razorpay_order_id' => 'free_'.Str::lower(Str::random(18)),
+                'razorpay_payment_id' => $paymentId,
+            ]);
+            $this->logPayment($user->id, $subscription, 'paid', $paymentId);
+        }
+
+        MessSubscriptionModel::query()
+            ->where('purchased_by', $user->id)
+            ->where('id', '!=', $subscription->id)
+            ->where('status', 'active')
+            ->update(['status' => 'cancelled']);
+
+        return $subscription->fresh();
+    }
+
+    private function redeemCoupon(CouponModel $coupon, int $userId, int $subscriptionId, ?string $ip): void
+    {
+        DB::transaction(function () use ($coupon) {
+            $locked = CouponModel::query()->lockForUpdate()->find($coupon->id);
+            if ($locked) {
+                $locked->increment('used_count');
+            }
+        });
+
+        ActivityLogModel::record(
+            'coupon.redeem',
+            'Coupon '.$coupon->code.' redeemed on subscription #'.$subscriptionId.'.',
+            $userId,
+            'coupon',
+            $coupon->id,
+            null,
+            ['subscription_id' => $subscriptionId, 'code' => $coupon->code],
+            $ip,
+        );
     }
 
     private function logPayment(
