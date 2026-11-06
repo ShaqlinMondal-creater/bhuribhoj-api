@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLogModel;
 use App\Models\MessSubscriptionModel;
 use App\Models\PaymentLogModel;
 use App\Models\PlanModel;
@@ -80,7 +81,7 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    public function subscriptionsDelete(int $id): JsonResponse
+    public function subscriptionsDelete(Request $request, int $id): JsonResponse
     {
         $row = MessSubscriptionModel::query()->find($id);
 
@@ -90,11 +91,25 @@ class SubscriptionController extends Controller
             ]);
         }
 
+        $messId = $row->mess_id ? (int) $row->mess_id : null;
+        $status = (string) $row->status;
+
         PaymentLogModel::query()
             ->where('mess_subscription_id', $row->id)
             ->update(['mess_subscription_id' => null]);
 
         $row->delete();
+
+        ActivityLogModel::record(
+            'subscription.delete',
+            'Subscription #'.$id.' deleted.',
+            $request->user()->id,
+            'subscription',
+            $id,
+            $messId,
+            ['status' => $status],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Subscription deleted.',

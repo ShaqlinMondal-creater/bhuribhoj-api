@@ -39,7 +39,7 @@ class ActivityLogModel extends Model
     }
 
     /**
-     * Safe helper for later write hooks. Existing controllers do not call this yet.
+     * Record an admin-visible write for the Logs screen and Overview.
      *
      * @param  array<string, mixed>  $meta
      */

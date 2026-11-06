@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\GuestMealSetupModel;
 use App\Models\MessModel;
 use App\Rules\KolkataDateRule;
@@ -53,6 +54,17 @@ class GuestMealSetupController extends Controller
             ->whereNull('guest_meal_setup_id')
             ->update(['guest_meal_setup_id' => $row->id]);
 
+        ActivityLogModel::record(
+            'guest_meal.create',
+            'Guest meal '.$row->meal_name.' created.',
+            $actor->id,
+            'guest_meal_setup',
+            $row->id,
+            $messId,
+            ['price' => (float) $row->price],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Guest meal setup created.',
             'data' => $row,
@@ -81,10 +93,22 @@ class GuestMealSetupController extends Controller
         }
 
         $row->fill($changes)->save();
+        $fresh = $row->fresh();
+
+        ActivityLogModel::record(
+            'guest_meal.update',
+            'Guest meal '.$fresh->meal_name.' updated.',
+            $actor->id,
+            'guest_meal_setup',
+            $fresh->id,
+            $messId,
+            array_keys($changes),
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Guest meal setup updated.',
-            'data' => $row->fresh(),
+            'data' => $fresh,
         ]);
     }
 
@@ -106,7 +130,19 @@ class GuestMealSetupController extends Controller
             $mess->save();
         }
 
+        $name = $row->meal_name;
         $row->delete();
+
+        ActivityLogModel::record(
+            'guest_meal.delete',
+            'Guest meal '.$name.' deleted.',
+            $actor->id,
+            'guest_meal_setup',
+            $id,
+            $messId,
+            [],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Guest meal setup deleted.',

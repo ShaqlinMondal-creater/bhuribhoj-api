@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLogModel;
 use App\Models\PlatformConfigModel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -70,13 +71,24 @@ class PlatformConfigController extends Controller
         $row->updated_by = $request->user()->id;
         $row->save();
 
+        ActivityLogModel::record(
+            'config.save',
+            'Config '.$row->config_key.' saved.',
+            $request->user()->id,
+            'platform_config',
+            $row->id,
+            null,
+            ['config_key' => $row->config_key],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Config saved.',
             'data' => $row->fresh()->load('updater:id,name'),
         ]);
     }
 
-    public function configsDelete(int $id): JsonResponse
+    public function configsDelete(Request $request, int $id): JsonResponse
     {
         $row = PlatformConfigModel::query()->find($id);
 
@@ -86,7 +98,19 @@ class PlatformConfigController extends Controller
             ]);
         }
 
+        $key = $row->config_key;
         $row->delete();
+
+        ActivityLogModel::record(
+            'config.delete',
+            'Config '.$key.' deleted.',
+            $request->user()->id,
+            'platform_config',
+            $id,
+            null,
+            ['config_key' => $key],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Config deleted.',

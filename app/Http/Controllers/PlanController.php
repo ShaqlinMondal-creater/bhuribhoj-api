@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLogModel;
 use App\Models\PaymentLogModel;
 use App\Models\PlanModel;
 use Illuminate\Http\JsonResponse;
@@ -40,6 +41,17 @@ class PlanController extends Controller
             'is_active' => $data['is_active'] ?? true,
         ]);
 
+        ActivityLogModel::record(
+            'plan.create',
+            'Plan '.$plan->name.' created.',
+            $request->user()->id,
+            'plan',
+            $plan->id,
+            null,
+            ['price_inr' => $plan->price_inr],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Plan created.',
             'data' => $plan,
@@ -77,14 +89,26 @@ class PlanController extends Controller
         }
 
         $plan->fill($changes)->save();
+        $fresh = $plan->fresh();
+
+        ActivityLogModel::record(
+            'plan.update',
+            'Plan '.$fresh->name.' updated.',
+            $request->user()->id,
+            'plan',
+            $fresh->id,
+            null,
+            array_keys($changes),
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Plan updated.',
-            'data' => $plan->fresh(),
+            'data' => $fresh,
         ]);
     }
 
-    public function plansDelete(int $id): JsonResponse
+    public function plansDelete(Request $request, int $id): JsonResponse
     {
         $plan = PlanModel::query()->find($id);
 
@@ -100,7 +124,19 @@ class PlanController extends Controller
             ]);
         }
 
+        $name = $plan->name;
         $plan->delete();
+
+        ActivityLogModel::record(
+            'plan.delete',
+            'Plan '.$name.' deleted.',
+            $request->user()->id,
+            'plan',
+            $id,
+            null,
+            [],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Plan deleted.',

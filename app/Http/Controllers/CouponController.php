@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLogModel;
 use App\Models\CouponModel;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -65,6 +66,17 @@ class CouponController extends Controller
         $data['used_count'] = 0;
 
         $coupon = CouponModel::query()->create($data);
+
+        ActivityLogModel::record(
+            'coupon.create',
+            'Coupon '.$coupon->code.' created.',
+            $request->user()->id,
+            'coupon',
+            $coupon->id,
+            null,
+            ['code' => $coupon->code],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Coupon created.',
@@ -131,13 +143,24 @@ class CouponController extends Controller
 
         $coupon->fill($changes)->save();
 
+        ActivityLogModel::record(
+            'coupon.update',
+            'Coupon '.$coupon->code.' updated.',
+            $request->user()->id,
+            'coupon',
+            $coupon->id,
+            null,
+            ['code' => $coupon->code],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Coupon updated.',
             'data' => $coupon->fresh()->load('creator:id,name'),
         ]);
     }
 
-    public function couponsDelete(int $id): JsonResponse
+    public function couponsDelete(Request $request, int $id): JsonResponse
     {
         $coupon = CouponModel::query()->find($id);
 
@@ -153,7 +176,19 @@ class CouponController extends Controller
             ]);
         }
 
+        $code = $coupon->code;
         $coupon->delete();
+
+        ActivityLogModel::record(
+            'coupon.delete',
+            'Coupon '.$code.' deleted.',
+            $request->user()->id,
+            'coupon',
+            $id,
+            null,
+            ['code' => $code],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Coupon deleted.',

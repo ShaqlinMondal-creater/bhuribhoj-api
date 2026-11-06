@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLogModel;
 use App\Models\DailyMealModel;
 use App\Models\DepositModel;
 use App\Models\MessModel;
@@ -116,6 +117,17 @@ class UserController extends Controller
             'status' => $data['status'],
         ])->save();
 
+        ActivityLogModel::record(
+            'user.update',
+            'User '.$user->name.' updated.',
+            $request->user()->id,
+            'user',
+            $user->id,
+            $user->mess_id ? (int) $user->mess_id : null,
+            ['role' => $user->role, 'status' => $user->status],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'User updated.',
             'data' => $this->present($user),
@@ -144,8 +156,21 @@ class UserController extends Controller
             ]);
         }
 
+        $name = $user->name;
+        $messId = $user->mess_id ? (int) $user->mess_id : null;
         $user->tokens()->delete();
         $user->delete();
+
+        ActivityLogModel::record(
+            'user.delete',
+            'User '.$name.' deleted.',
+            $request->user()->id,
+            'user',
+            $id,
+            $messId,
+            [],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'User deleted.',

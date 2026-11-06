@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\PaymentLogModel;
 use App\Rules\KolkataDateRule;
 use Carbon\Carbon;
@@ -134,7 +135,7 @@ class PaymentController extends Controller
         ]);
     }
 
-    public function paymentsDelete(int $id): JsonResponse
+    public function paymentsDelete(Request $request, int $id): JsonResponse
     {
         $row = PaymentLogModel::query()->find($id);
 
@@ -144,7 +145,20 @@ class PaymentController extends Controller
             ]);
         }
 
+        $amount = (int) $row->amount_inr;
+        $status = (string) $row->status;
         $row->delete();
+
+        ActivityLogModel::record(
+            'payment.delete',
+            'Bill #'.$id.' deleted.',
+            $request->user()->id,
+            'payment',
+            $id,
+            null,
+            ['amount_inr' => $amount, 'status' => $status],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Bill deleted.',

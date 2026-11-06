@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\GuestMealSetupModel;
 use App\Models\MessMealModel;
 use App\Models\MessModel;
@@ -29,9 +30,23 @@ class MessController extends Controller
         $actor = $request->user();
 
         if ($actor->role === 'admin') {
-            $messes = MessModel::query()->latest()->paginate(20);
+            $limit = min(100, max(1, (int) $request->input('limit', 50)));
+            $offset = max(0, (int) $request->input('offset', 0));
+            $query = MessModel::query()->with([
+                'presidentUser:id,name,email,role',
+                'managerUser:id,name,email,role',
+                'guestMealSetups:id,mess_id,meal_name,price',
+                'activeSubscription.plan:id,name,duration_months,price_inr',
+            ]);
+            $count = (clone $query)->count();
+            $rows = $query->latest()->skip($offset)->take($limit)->get();
 
-            return response()->json($messes);
+            return response()->json([
+                'data' => $rows,
+                'count' => $count,
+                'limit' => $limit,
+                'offset' => $offset,
+            ]);
         }
 
         if ($blank = $this->blankMessResponse($actor, ['data' => null])) {
@@ -171,9 +186,22 @@ class MessController extends Controller
             return $mess;
         });
 
+        $fresh = $mess->fresh()->load(['activeSubscription.plan', 'guestMealSetups', 'presidentUser:id,name,email,role']);
+
+        ActivityLogModel::record(
+            'mess.create',
+            'Mess '.$fresh->name.' created.',
+            $actor->id,
+            'mess',
+            $fresh->id,
+            $fresh->id,
+            ['code' => $fresh->code],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Mess created.',
-            'data' => $mess->fresh()->load(['activeSubscription.plan', 'guestMealSetups', 'presidentUser:id,name,email,role']),
+            'data' => $fresh,
             'seat' => AccountSeat::for($actor->fresh()),
         ], 201);
     }
@@ -216,10 +244,22 @@ class MessController extends Controller
         }
 
         $mess->fill($data)->save();
+        $fresh = $mess->fresh();
+
+        ActivityLogModel::record(
+            'mess.update',
+            'Mess '.$fresh->name.' updated.',
+            $actor->id,
+            'mess',
+            $fresh->id,
+            $fresh->id,
+            array_keys($data),
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Mess updated.',
-            'data' => $mess->fresh(),
+            'data' => $fresh,
         ]);
     }
 
@@ -242,7 +282,20 @@ class MessController extends Controller
             ]);
         }
 
+        $name = $mess->name;
+        $code = $mess->code;
         $mess->delete();
+
+        ActivityLogModel::record(
+            'mess.delete',
+            'Mess '.$name.' deleted.',
+            $actor->id,
+            'mess',
+            $id,
+            null,
+            ['code' => $code],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Mess deleted.',
@@ -359,6 +412,21 @@ class MessController extends Controller
                 'managerUser:id,name,email,role',
             ]);
         });
+
+        ActivityLogModel::record(
+            'mess.assign',
+            ucfirst($data['seat']).' seat assigned on '.$mess->name.'.',
+            $actor->id,
+            'mess',
+            $mess->id,
+            $mess->id,
+            [
+                'seat' => $data['seat'],
+                'user_id' => (int) $data['user_id'],
+                'from_date' => $data['from_date'],
+            ],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Seat assigned.',

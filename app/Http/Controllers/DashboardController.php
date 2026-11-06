@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\DailyMealModel;
 use App\Models\DepositModel;
 use App\Models\ExpenseEntryModel;
 use App\Models\MessMealModel;
 use App\Models\MessModel;
+use App\Models\MessSubscriptionModel;
+use App\Models\PaymentLogModel;
 use App\Models\UserModel;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -47,12 +50,38 @@ class DashboardController extends Controller
         }
 
         if ($actor->role === 'admin' && ! $request->filled('mess_id')) {
+            $recentLogs = ActivityLogModel::query()
+                ->with(['actor:id,name', 'mess:id,name'])
+                ->orderByDesc('id')
+                ->limit(8)
+                ->get()
+                ->map(static function (ActivityLogModel $log) {
+                    return [
+                        'id' => $log->id,
+                        'action' => $log->action,
+                        'message' => $log->message,
+                        'created_at' => $log->created_at,
+                        'actor' => $log->actor?->name,
+                        'mess' => $log->mess?->name,
+                    ];
+                })
+                ->values();
+
             return response()->json([
                 'user' => $actor,
                 'platform' => [
                     'mess_count' => MessModel::query()->count(),
                     'user_count' => UserModel::query()->count(),
                     'active_mess_count' => MessModel::query()->where('is_active', true)->count(),
+                    'president_count' => UserModel::query()->where('role', 'president')->count(),
+                    'manager_count' => UserModel::query()->where('role', 'manager')->count(),
+                    'member_count' => UserModel::query()->where('role', 'member')->count(),
+                    'active_subscription_count' => MessSubscriptionModel::query()
+                        ->where('status', 'active')
+                        ->whereDate('ends_on', '>=', now()->toDateString())
+                        ->count(),
+                    'paid_total_inr' => (int) PaymentLogModel::query()->where('status', 'paid')->sum('amount_inr'),
+                    'recent_logs' => $recentLogs,
                 ],
                 'mess_totals' => null,
                 'my_totals' => null,
