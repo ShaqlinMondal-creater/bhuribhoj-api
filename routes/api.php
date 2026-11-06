@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CouponController;
 use App\Http\Controllers\DailyMealController;
 use App\Http\Controllers\MealAwayController;
 use App\Http\Controllers\MessMealController;
@@ -13,6 +15,7 @@ use App\Http\Controllers\MemberController;
 use App\Http\Controllers\MessController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PlanController;
+use App\Http\Controllers\PlatformConfigController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\UserController;
@@ -66,6 +69,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/users/update', [UserController::class, 'usersUpdate']);
         Route::delete('/users/{id}/delete', [UserController::class, 'usersDelete']);
         Route::post('/messes/open', [MessController::class, 'messesOpen']);
+
+        Route::prefix('coupons')->group(function () {
+            Route::post('/fetch', [CouponController::class, 'couponsFetch']);
+            Route::post('/create', [CouponController::class, 'couponsCreate']);
+            Route::post('/update', [CouponController::class, 'couponsUpdate']);
+            Route::delete('/{id}/delete', [CouponController::class, 'couponsDelete']);
+        });
+
+        Route::prefix('configs')->group(function () {
+            Route::post('/fetch', [PlatformConfigController::class, 'configsFetch']);
+            Route::post('/save', [PlatformConfigController::class, 'configsSave']);
+            Route::delete('/{id}/delete', [PlatformConfigController::class, 'configsDelete']);
+        });
+
+        Route::post('/logs/fetch', [ActivityLogController::class, 'logsFetch']);
 
         Route::middleware('mess.ready')->group(function () {
             Route::prefix('messes')->group(function () {
