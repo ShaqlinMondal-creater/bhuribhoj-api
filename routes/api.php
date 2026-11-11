@@ -16,6 +16,7 @@ use App\Http\Controllers\MessController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\PlatformConfigController;
+use App\Http\Controllers\PlatformSettingsController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\UserController;
@@ -41,6 +42,7 @@ Route::prefix('public')->group(function () {
     });
 
     Route::post('/plans/fetch', [PlanController::class, 'plansFetch']);
+    Route::post('/settings/fetch', [PlatformSettingsController::class, 'settingsFetch']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -81,6 +83,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/fetch', [PlatformConfigController::class, 'configsFetch']);
             Route::post('/save', [PlatformConfigController::class, 'configsSave']);
             Route::delete('/{id}/delete', [PlatformConfigController::class, 'configsDelete']);
+        });
+
+        Route::prefix('settings')->group(function () {
+            Route::post('/fetch', [PlatformSettingsController::class, 'settingsFetch']);
+            Route::post('/save', [PlatformSettingsController::class, 'settingsSave']);
         });
 
         Route::post('/logs/fetch', [ActivityLogController::class, 'logsFetch']);
