@@ -52,7 +52,7 @@ class PlatformSettingsController extends Controller
     }
 
     /**
-     * @return array{theme: string}
+     * @return array{theme: string, contact_email: string}
      */
     private function present(): array
     {
@@ -64,8 +64,11 @@ class PlatformSettingsController extends Controller
             ? $value
             : 'black-yellow';
 
+        $contact = trim((string) config('services.contact_inbox'));
+
         return [
             'theme' => $theme,
+            'contact_email' => $contact !== '' ? $contact : 'hello@bhuribhoj.com',
         ];
     }
 }
