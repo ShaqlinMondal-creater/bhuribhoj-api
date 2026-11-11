@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\DailyMealModel;
 use App\Models\MealAwayModel;
 use App\Models\MessMealModel;
@@ -143,6 +144,20 @@ class DailyMealController extends Controller
             return $out;
         });
 
+        ActivityLogModel::record(
+            'daily_meal.save',
+            'Daily meals set for '.$data['meal_date'].' ('.count($saved).' member'.(count($saved) === 1 ? '' : 's').').',
+            $actor->id,
+            'daily_meal',
+            null,
+            $messId,
+            [
+                'meal_date' => $data['meal_date'],
+                'member_count' => count($saved),
+            ],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Daily meals saved.',
             'data' => $saved,
@@ -159,7 +174,20 @@ class DailyMealController extends Controller
             ->where('mess_id', $messId)
             ->firstOrFail();
 
+        $mealDate = $row->meal_date;
+        $userId = $row->user_id;
         $row->delete();
+
+        ActivityLogModel::record(
+            'daily_meal.delete',
+            'Daily meal #'.$id.' deleted for '.$mealDate.'.',
+            $actor->id,
+            'daily_meal',
+            $id,
+            $messId,
+            ['meal_date' => $mealDate, 'user_id' => $userId],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Daily meal deleted.',

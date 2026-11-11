@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\MessMealModel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +74,20 @@ class MessMealController extends Controller
             'status' => $data['status'],
             'added_by' => $actor->id,
         ])->save();
+
+        ActivityLogModel::record(
+            'mess_meal.update',
+            'Meal '.$row->meals_type.' set to '.$row->status.'.',
+            $actor->id,
+            'mess_meal',
+            $row->id,
+            $messId,
+            [
+                'meals_type' => $row->meals_type,
+                'status' => $row->status,
+            ],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Meals updated.',

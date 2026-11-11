@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\MessModel;
 use App\Models\UserModel;
 use App\Support\MemberCodeGenerator;
@@ -149,6 +150,17 @@ class MemberController extends Controller
             'is_loggedin' => false,
         ]);
 
+        ActivityLogModel::record(
+            'member.create',
+            'Member '.$member->name.' added to '.$mess->name.'.',
+            $actor->id,
+            'user',
+            $member->id,
+            $mess->id,
+            ['role' => $member->role, 'member_code' => $member->member_code],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Member created.',
             'data' => $member,
@@ -179,7 +191,19 @@ class MemberController extends Controller
             ]);
         }
 
-        $member->fill(collect($data)->except('user_id')->all())->save();
+        $changes = collect($data)->except('user_id')->all();
+        $member->fill($changes)->save();
+
+        ActivityLogModel::record(
+            'member.update',
+            'Member '.$member->name.' updated.',
+            $actor->id,
+            'user',
+            $member->id,
+            $messId,
+            array_keys($changes),
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Member updated.',

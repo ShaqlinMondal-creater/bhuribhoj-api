@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\ExpenseEntryModel;
 use App\Models\MessModel;
 use Illuminate\Http\JsonResponse;
@@ -122,6 +123,22 @@ class ExpenseController extends Controller
             'recorded_by' => $actor->id,
         ]);
 
+        ActivityLogModel::record(
+            'expense.create',
+            'Expense '.$row->title.' ('.$row->category.') of '.$row->amount.' recorded.',
+            $actor->id,
+            'expense',
+            $row->id,
+            $messId,
+            [
+                'title' => $row->title,
+                'category' => $row->category,
+                'amount' => $row->amount,
+                'fund_type' => $row->fund_type,
+            ],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Expense recorded.',
             'data' => $row->load(['recorder:id,name']),
@@ -178,10 +195,22 @@ class ExpenseController extends Controller
         }
 
         $row->fill($changes)->save();
+        $fresh = $row->fresh()->load(['recorder:id,name']);
+
+        ActivityLogModel::record(
+            'expense.update',
+            'Expense '.$fresh->title.' updated.',
+            $actor->id,
+            'expense',
+            $fresh->id,
+            $messId,
+            array_keys($changes),
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Expense updated.',
-            'data' => $row->fresh()->load(['recorder:id,name']),
+            'data' => $fresh,
         ]);
     }
 
@@ -190,11 +219,26 @@ class ExpenseController extends Controller
         $actor = $request->user();
         $messId = $this->resolveMessId($actor, $request);
 
-        ExpenseEntryModel::query()
+        $row = ExpenseEntryModel::query()
             ->where('id', $id)
             ->where('mess_id', $messId)
-            ->firstOrFail()
-            ->delete();
+            ->firstOrFail();
+
+        $title = $row->title;
+        $amount = $row->amount;
+        $category = $row->category;
+        $row->delete();
+
+        ActivityLogModel::record(
+            'expense.delete',
+            'Expense '.$title.' deleted.',
+            $actor->id,
+            'expense',
+            $id,
+            $messId,
+            ['title' => $title, 'amount' => $amount, 'category' => $category],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Expense deleted.',

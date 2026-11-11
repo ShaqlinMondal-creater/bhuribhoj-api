@@ -34,7 +34,6 @@ class ActivityLogController extends Controller
             $like = '%'.addcslashes($search, '%_\\').'%';
             $query->where(function ($inner) use ($like) {
                 $inner->where('message', 'like', $like)
-                    ->orWhere('action', 'like', $like)
                     ->orWhere('subject_type', 'like', $like)
                     ->orWhereHas('actor', function ($actor) use ($like) {
                         $actor->where('name', 'like', $like)->orWhere('email', 'like', $like);
@@ -71,11 +70,20 @@ class ActivityLogController extends Controller
             ->take($limit)
             ->get();
 
+        $actions = ActivityLogModel::query()
+            ->select('action')
+            ->distinct()
+            ->orderBy('action')
+            ->pluck('action')
+            ->values()
+            ->all();
+
         return response()->json([
             'data' => $rows,
             'count' => $count,
             'limit' => $limit,
             'offset' => $offset,
+            'actions' => $actions,
         ]);
     }
 }

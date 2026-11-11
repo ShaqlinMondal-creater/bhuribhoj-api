@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\DailyMenuModel;
 use App\Models\MessMealModel;
 use Illuminate\Http\JsonResponse;
@@ -92,6 +93,20 @@ class DailyMenuController extends Controller
             ]
         );
 
+        ActivityLogModel::record(
+            'menu.save',
+            'Menu for '.$menu->meal_type.' on '.$menu->menu_date.' saved.',
+            $actor->id,
+            'menu',
+            $menu->id,
+            $messId,
+            [
+                'menu_date' => $menu->menu_date,
+                'meal_type' => $menu->meal_type,
+            ],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Daily menu saved.',
             'data' => $menu->load('decider:id,name'),
@@ -103,11 +118,25 @@ class DailyMenuController extends Controller
         $actor = $request->user();
         $messId = $this->resolveMessId($actor, $request);
 
-        DailyMenuModel::query()
+        $menu = DailyMenuModel::query()
             ->where('id', $id)
             ->where('mess_id', $messId)
-            ->firstOrFail()
-            ->delete();
+            ->firstOrFail();
+
+        $mealType = $menu->meal_type;
+        $menuDate = $menu->menu_date;
+        $menu->delete();
+
+        ActivityLogModel::record(
+            'menu.delete',
+            'Menu for '.$mealType.' on '.$menuDate.' deleted.',
+            $actor->id,
+            'menu',
+            $id,
+            $messId,
+            ['menu_date' => $menuDate, 'meal_type' => $mealType],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Daily menu deleted.',

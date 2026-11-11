@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\DepositModel;
 use App\Models\MessModel;
 use App\Models\UserModel;
@@ -154,6 +155,22 @@ class DepositController extends Controller
             'added_by' => $actor->id,
         ]);
 
+        ActivityLogModel::record(
+            'deposit.create',
+            'Deposit of '.$deposit->amount.' recorded for '.$member->name.'.',
+            $actor->id,
+            'deposit',
+            $deposit->id,
+            $messId,
+            [
+                'amount' => $deposit->amount,
+                'fund_type' => $deposit->fund_type,
+                'deposit_type' => $deposit->deposit_type,
+                'user_id' => $member->id,
+            ],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Deposit recorded.',
             'data' => $deposit->load(['user:id,name,email,member_code,role', 'addedBy:id,name']),
@@ -199,10 +216,22 @@ class DepositController extends Controller
         }
 
         $deposit->fill($changes)->save();
+        $fresh = $deposit->fresh()->load(['user:id,name,email,member_code,role', 'addedBy:id,name']);
+
+        ActivityLogModel::record(
+            'deposit.update',
+            'Deposit #'.$fresh->id.' updated for '.($fresh->user->name ?? 'member').'.',
+            $actor->id,
+            'deposit',
+            $fresh->id,
+            $messId,
+            array_keys($changes),
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Deposit updated.',
-            'data' => $deposit->fresh()->load(['user:id,name,email,member_code,role', 'addedBy:id,name']),
+            'data' => $fresh,
         ]);
     }
 
@@ -211,7 +240,20 @@ class DepositController extends Controller
         $actor = $request->user();
         $messId = $this->resolveMessId($actor, $request);
         $deposit = $this->depositForMess($messId, $id);
+        $amount = $deposit->amount;
+        $userId = $deposit->user_id;
         $deposit->delete();
+
+        ActivityLogModel::record(
+            'deposit.delete',
+            'Deposit #'.$id.' of '.$amount.' deleted.',
+            $actor->id,
+            'deposit',
+            $id,
+            $messId,
+            ['amount' => $amount, 'user_id' => $userId],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Deposit deleted.',
