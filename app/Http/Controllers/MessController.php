@@ -238,21 +238,25 @@ class MessController extends Controller
             ]);
         }
 
-        $fundType = $data['fund_type'] ?? $mess->fund_type;
-        $depositAmount = array_key_exists('s_deposite_amount', $data)
-            ? $data['s_deposite_amount']
-            : $mess->s_deposite_amount;
-        $this->assertDepositAmount($fundType, $depositAmount);
+        $themeOnly = array_keys($data) === ['theme'];
 
-        if ($fundType === 'manager_only') {
-            $data['s_deposite_amount'] = null;
+        if (! $themeOnly) {
+            $fundType = $data['fund_type'] ?? $mess->fund_type;
+            $depositAmount = array_key_exists('s_deposite_amount', $data)
+                ? $data['s_deposite_amount']
+                : $mess->s_deposite_amount;
+            $this->assertDepositAmount($fundType, $depositAmount);
+
+            if ($fundType === 'manager_only') {
+                $data['s_deposite_amount'] = null;
+            }
         }
 
         $mess->fill($data)->save();
         $fresh = $mess->fresh();
 
-        $action = array_keys($data) === ['theme'] ? 'mess.theme' : 'mess.update';
-        $message = $action === 'mess.theme'
+        $action = $themeOnly ? 'mess.theme' : 'mess.update';
+        $message = $themeOnly
             ? 'Mess '.$fresh->name.' theme set to '.($fresh->theme ?? 'default').'.'
             : 'Mess '.$fresh->name.' updated.';
 
@@ -268,7 +272,7 @@ class MessController extends Controller
         );
 
         return response()->json([
-            'message' => 'Mess updated.',
+            'message' => $themeOnly ? 'Mess theme updated.' : 'Mess updated.',
             'data' => $fresh,
         ]);
     }
