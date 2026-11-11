@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\UserModel;
 use App\Support\AccountSeat;
+use App\Support\UserAvatar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -50,7 +51,7 @@ class AuthController extends Controller
         return response()->json([
             'token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user,
+            'user' => $this->userPayload($user),
             'seat' => AccountSeat::for($user),
         ]);
     }
@@ -74,14 +75,26 @@ class AuthController extends Controller
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'mobile' => ['nullable', 'string', 'max:20'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
-            'avatar' => ['nullable', 'string', 'max:700000', 'regex:/^data:image\/(jpeg|png|webp);base64,/'],
+            'avatar' => ['nullable', 'string', 'max:700000'],
         ]);
 
         if (! empty($data['password'])) {
             $user->password = $data['password'];
         }
 
-        $user->fill(collect($data)->except(['password', 'password_confirmation'])->all());
+        if (array_key_exists('avatar', $data)) {
+            $avatar = $data['avatar'];
+            unset($data['avatar']);
+
+            if ($avatar === null || $avatar === '') {
+                UserAvatar::clear($user);
+            } elseif (is_string($avatar) && str_starts_with($avatar, 'data:image/')) {
+                $user->avatar = UserAvatar::storeDataUrl($user, $avatar);
+            }
+            // Existing public URL echoed from the client is ignored.
+        }
+
+        $user->fill(collect($data)->except(['password', 'password_confirmation', 'avatar'])->all());
         $user->save();
 
         return response()->json([
@@ -105,7 +118,7 @@ class AuthController extends Controller
     {
         $user->loadMissing('mess:id,name,code');
         $payload = $user->toArray();
-        $payload['avatar'] = $user->avatar;
+        $payload['avatar'] = UserAvatar::hydrate($user);
 
         return $payload;
     }
