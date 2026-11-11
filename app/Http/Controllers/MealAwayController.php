@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
+use App\Models\ActivityLogModel;
 use App\Models\MealAwayModel;
 use App\Models\MessMealModel;
 use App\Models\UserModel;
@@ -154,9 +155,31 @@ class MealAwayController extends Controller
             MealAttendance::syncSpan($messId, $current->from_date->toDateString(), $current->to_date?->toDateString(), true);
         }
 
+        $fresh = $row->fresh()->load('user:id,name,member_code,role');
+        $range = $to
+            ? $from.' '.$data['from_meal'].' → '.$to.' '.$toMeal
+            : $from.' '.$data['from_meal'].' onward';
+
+        ActivityLogModel::record(
+            $current ? 'meal_away.update' : 'meal_away.save',
+            'Leave for '.($fresh->user->name ?? 'member').' set ('.$range.').',
+            $actor->id,
+            'meal_away',
+            $fresh->id,
+            $messId,
+            [
+                'user_id' => $member->id,
+                'from_date' => $from,
+                'from_meal' => $data['from_meal'],
+                'to_date' => $to,
+                'to_meal' => $toMeal,
+            ],
+            $request->ip(),
+        );
+
         return response()->json([
             'message' => 'Away saved.',
-            'data' => $this->present($row->fresh()->load('user:id,name,member_code,role')),
+            'data' => $this->present($fresh),
         ]);
     }
 
@@ -189,8 +212,28 @@ class MealAwayController extends Controller
 
         $from = $row->from_date->toDateString();
         $to = $row->to_date?->toDateString();
+        $userId = $row->user_id;
+        $fromMeal = $row->from_meal;
+        $toMeal = $row->to_meal;
         $row->delete();
         MealAttendance::syncSpan($messId, $from, $to, true);
+
+        ActivityLogModel::record(
+            'meal_away.delete',
+            'Leave #'.$id.' removed ('.$from.' '.$fromMeal.').',
+            $actor->id,
+            'meal_away',
+            $id,
+            $messId,
+            [
+                'user_id' => $userId,
+                'from_date' => $from,
+                'from_meal' => $fromMeal,
+                'to_date' => $to,
+                'to_meal' => $toMeal,
+            ],
+            $request->ip(),
+        );
 
         return response()->json([
             'message' => 'Away removed.',
