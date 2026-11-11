@@ -225,7 +225,12 @@ class MessController extends Controller
             's_deposite_amount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'late_fee_amount' => ['sometimes', 'numeric', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
+            'theme' => ['sometimes', 'nullable', 'string', Rule::in(['black-yellow', 'sea-green', 'orange', 'red'])],
         ]);
+
+        if ($actor->role === 'manager') {
+            $data = array_intersect_key($data, array_flip(['theme']));
+        }
 
         if ($data === []) {
             throw ValidationException::withMessages([
@@ -246,9 +251,14 @@ class MessController extends Controller
         $mess->fill($data)->save();
         $fresh = $mess->fresh();
 
+        $action = array_keys($data) === ['theme'] ? 'mess.theme' : 'mess.update';
+        $message = $action === 'mess.theme'
+            ? 'Mess '.$fresh->name.' theme set to '.($fresh->theme ?? 'default').'.'
+            : 'Mess '.$fresh->name.' updated.';
+
         ActivityLogModel::record(
-            'mess.update',
-            'Mess '.$fresh->name.' updated.',
+            $action,
+            $message,
             $actor->id,
             'mess',
             $fresh->id,

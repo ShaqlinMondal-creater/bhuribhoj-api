@@ -264,6 +264,7 @@ Route::middleware('auth:sanctum')->group(function () {
             });
 
             Route::post('/messes/fetch', [MessController::class, 'messesFetch']);
+            Route::post('/messes/update', [MessController::class, 'messesUpdate']);
             Route::post('/bills/fetch', [PaymentController::class, 'billsFetch']);
         });
     });

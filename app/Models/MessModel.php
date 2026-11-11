@@ -31,6 +31,7 @@ class MessModel extends Model
         's_deposite_amount',
         'late_fee_amount',
         'is_active',
+        'theme',
     ];
 
     protected function casts(): array
