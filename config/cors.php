@@ -1,12 +1,20 @@
 <?php
 
+$origins = array_values(array_unique(array_filter(array_map(
+    static fn (string $origin): string => rtrim(trim($origin), '/'),
+    explode(',', (string) env(
+        'CORS_ALLOWED_ORIGINS',
+        (string) env('FRONTEND_URL', 'http://localhost:3000'),
+    )),
+))));
+
 return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => $origins === [] ? ['http://localhost:3000'] : $origins,
 
     'allowed_origins_patterns' => [],
 

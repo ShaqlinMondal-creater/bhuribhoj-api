@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\DailyMealController;
 use App\Http\Controllers\MealAwayController;
@@ -43,6 +44,7 @@ Route::prefix('public')->group(function () {
 
     Route::post('/plans/fetch', [PlanController::class, 'plansFetch']);
     Route::post('/settings/fetch', [PlatformSettingsController::class, 'settingsFetch']);
+    Route::post('/contact', [ContactController::class, 'contactSend'])->middleware('throttle:8,1');
 });
 
 Route::middleware('auth:sanctum')->group(function () {

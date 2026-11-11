@@ -39,6 +39,8 @@ return [
 
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
 
+    'contact_inbox' => env('CONTACT_INBOX', env('MAIL_FROM_ADDRESS', 'hello@bhuribhoj.com')),
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
