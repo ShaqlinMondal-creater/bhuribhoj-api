@@ -142,12 +142,37 @@ final class SiteConfig
             'legal_privacy' => $read(self::LEGAL_PRIVACY),
             'legal_terms' => $read(self::LEGAL_TERMS),
             'credit_name' => $read(self::CREDIT_NAME),
-            'credit_url' => $read(self::CREDIT_URL),
+            'credit_url' => self::absoluteHttpUrl($read(self::CREDIT_URL), $defaults[self::CREDIT_URL]),
         ];
     }
 
     public static function contactInbox(): string
     {
         return (string) (self::public()['contact_email'] ?? '');
+    }
+
+    /**
+     * Bare hosts like "liwaas.com" must become https://… or browsers treat them as relative paths.
+     */
+    private static function absoluteHttpUrl(string $raw, string $fallback): string
+    {
+        $value = trim($raw);
+        if ($value === '') {
+            return $fallback;
+        }
+
+        if (preg_match('#^https?://#i', $value) === 1) {
+            return $value;
+        }
+
+        if (str_starts_with($value, '//')) {
+            return 'https:'.$value;
+        }
+
+        if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $value) === 1) {
+            return $fallback;
+        }
+
+        return 'https://'.ltrim($value, '/');
     }
 }
