@@ -30,10 +30,10 @@ class ContactController extends Controller
             ]);
         }
 
-        $inbox = (string) config('services.contact_inbox');
+        $inbox = PlatformSettingsController::contactInbox();
         if ($inbox === '') {
             throw ValidationException::withMessages([
-                'message' => ['Contact inbox is not configured.'],
+                'message' => ['Contact email is not set. Add public_contact_email in Admin → Configs.'],
             ]);
         }
 

@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLogModel;
 use App\Models\PlatformConfigModel;
+use App\Support\SiteConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PlatformSettingsController extends Controller
 {
@@ -51,8 +53,13 @@ class PlatformSettingsController extends Controller
         ]);
     }
 
+    public static function contactInbox(): string
+    {
+        return SiteConfig::contactInbox();
+    }
+
     /**
-     * @return array{theme: string, contact_email: string}
+     * @return array<string, mixed>
      */
     private function present(): array
     {
@@ -64,11 +71,9 @@ class PlatformSettingsController extends Controller
             ? $value
             : 'black-yellow';
 
-        $contact = trim((string) config('services.contact_inbox'));
-
-        return [
-            'theme' => $theme,
-            'contact_email' => $contact !== '' ? $contact : 'hello@bhuribhoj.com',
-        ];
+        return array_merge(
+            ['theme' => $theme],
+            SiteConfig::public(),
+        );
     }
 }
