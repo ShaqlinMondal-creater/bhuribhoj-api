@@ -98,6 +98,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
         Route::prefix('contact-support')->group(function () {
             Route::post('/fetch', [ContactSupportController::class, 'contactSupportFetch']);
+            Route::post('/start', [ContactSupportController::class, 'contactSupportStart']);
+            Route::post('/update', [ContactSupportController::class, 'contactSupportUpdate']);
             Route::post('/reply', [ContactSupportController::class, 'contactSupportReply']);
             Route::post('/status', [ContactSupportController::class, 'contactSupportStatus']);
         });

@@ -8,6 +8,7 @@ use App\Models\ContactInquiryReplyModel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -58,11 +59,130 @@ class ContactSupportController extends Controller
         ]);
     }
 
+    public function contactSupportStart(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:120'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'mess' => ['sometimes', 'nullable', 'string', 'max:160'],
+            'members' => ['sometimes', 'integer', 'min:1', 'max:5000'],
+            'message' => ['required', 'string', 'min:2', 'max:5000'],
+        ]);
+
+        $actor = $request->user();
+        $to = Str::lower(trim($data['email']));
+        $phone = trim((string) ($data['phone'] ?? ''));
+        $mess = trim((string) ($data['mess'] ?? ''));
+        $body = trim($data['message']);
+
+        $inquiry = ContactInquiryModel::query()->create([
+            'name' => $data['name'],
+            'mess' => $mess !== '' ? $mess : 'Direct support',
+            'members' => (int) ($data['members'] ?? 1),
+            'phone' => $phone !== '' ? $phone : null,
+            'email' => $to,
+            'message' => 'Outbound thread started by support.',
+            'status' => 'replied',
+            'ip' => $request->ip(),
+        ]);
+
+        Mail::send('mail.contact-reply', [
+            'name' => $inquiry->name,
+            'mess' => $inquiry->mess,
+            'reply' => $body,
+        ], function ($message) use ($to, $inquiry) {
+            $message->to($to, $inquiry->name)->subject('Message from BhuriBhoj support');
+            $inbox = PlatformSettingsController::contactInbox();
+            if ($inbox !== '') {
+                $message->replyTo($inbox, 'BhuriBhoj Support');
+            }
+        });
+
+        $reply = ContactInquiryReplyModel::query()->create([
+            'contact_inquiry_id' => $inquiry->id,
+            'sent_by' => $actor?->id,
+            'body' => $body,
+            'emailed_to' => $to,
+        ]);
+
+        ActivityLogModel::record(
+            'contact.start',
+            'Started support email to '.$inquiry->name.'.',
+            $actor?->id,
+            'contact',
+            $inquiry->id,
+            null,
+            ['emailed_to' => $to, 'reply_id' => $reply->id],
+            $request->ip(),
+        );
+
+        return response()->json([
+            'message' => 'Email sent to '.$to.'.',
+            'data' => $this->present($inquiry->fresh(['replies.sender:id,name,email'])),
+        ], 201);
+    }
+
+    public function contactSupportUpdate(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'id' => ['required', 'integer'],
+            'name' => ['sometimes', 'string', 'min:2', 'max:120'],
+            'mess' => ['sometimes', 'string', 'min:2', 'max:160'],
+            'members' => ['sometimes', 'integer', 'min:1', 'max:5000'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255'],
+        ]);
+
+        $inquiry = ContactInquiryModel::query()->with(['replies.sender:id,name,email'])->find($data['id']);
+        if (! $inquiry) {
+            throw ValidationException::withMessages([
+                'id' => ['That inquiry was not found.'],
+            ]);
+        }
+
+        $changes = collect($data)->except(['id'])->all();
+        if (array_key_exists('phone', $changes)) {
+            $phone = trim((string) ($changes['phone'] ?? ''));
+            $changes['phone'] = $phone !== '' ? $phone : null;
+        }
+        if (array_key_exists('email', $changes)) {
+            $email = trim((string) ($changes['email'] ?? ''));
+            $changes['email'] = $email !== '' ? $email : null;
+        }
+
+        if ($changes === []) {
+            throw ValidationException::withMessages([
+                'id' => ['No fields to update.'],
+            ]);
+        }
+
+        $inquiry->fill($changes)->save();
+
+        ActivityLogModel::record(
+            'contact.update',
+            'Updated contact inquiry #'.$inquiry->id.'.',
+            $request->user()?->id,
+            'contact',
+            $inquiry->id,
+            null,
+            array_keys($changes),
+            $request->ip(),
+        );
+
+        return response()->json([
+            'message' => 'Visitor details saved.',
+            'data' => $this->present($inquiry->fresh(['replies.sender:id,name,email'])),
+        ]);
+    }
+
     public function contactSupportReply(Request $request): JsonResponse
     {
         $data = $request->validate([
             'id' => ['required', 'integer'],
             'message' => ['required', 'string', 'min:2', 'max:5000'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'name' => ['sometimes', 'string', 'min:2', 'max:120'],
         ]);
 
         $inquiry = ContactInquiryModel::query()->with('replies')->find($data['id']);
@@ -72,10 +192,21 @@ class ContactSupportController extends Controller
             ]);
         }
 
+        if (array_key_exists('name', $data)) {
+            $inquiry->name = $data['name'];
+        }
+        if (array_key_exists('email', $data)) {
+            $email = trim((string) ($data['email'] ?? ''));
+            $inquiry->email = $email !== '' ? $email : null;
+        }
+        if ($inquiry->isDirty(['name', 'email'])) {
+            $inquiry->save();
+        }
+
         $to = trim((string) ($inquiry->email ?? ''));
         if ($to === '' || ! filter_var($to, FILTER_VALIDATE_EMAIL)) {
             throw ValidationException::withMessages([
-                'message' => ['This inquiry has no email. Reply by phone instead.'],
+                'email' => ['Add a valid email in To before sending.'],
             ]);
         }
 
