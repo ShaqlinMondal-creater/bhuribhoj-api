@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "BhuriBhoj API",
-    "description": "Every BhuriBhoj API with a sample body.\n\n1. Import this file in Postman.\n2. Send Auth → Login. The token is saved on the collection automatically.\n3. Other requests send Authorization: Bearer {{token}}.\n\nbase_url defaults to the local API (http://127.0.0.1:8000/api). Change the collection variable for live: https://bhuribhoj-api.liwaas.com/api\n\nList fetches are POST. Filters go in the JSON body, not the query string.",
+    "description": "Live routes from routes/api.php (role-prefixed).\n\n1. Import this collection + BhuriBhoj.local.postman_environment.json\n2. Public → Auth → Login (token saved automatically)\n3. Set collection var `door` to admin | president | manager | member for house routes\n\nRemoved (do not call): /subscriptions/purchase, /mess-invitations/*, /managers/*, /monthly-dues/*, /market-*, /guest-meals, /constant-expenses, /mess-rules, /fines, flat /auth/* without public|authorize prefix.\n\nbase_url: http://127.0.0.1:8000/api  or  https://bhuribhoj-api.liwaas.com/api",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -14,16 +14,24 @@
       "value": ""
     },
     {
-      "key": "user_id",
-      "value": "9"
+      "key": "door",
+      "value": "president"
     },
     {
       "key": "record_id",
       "value": "1"
     },
     {
-      "key": "invitation_token",
-      "value": "paste-invitation-token"
+      "key": "user_id",
+      "value": "1"
+    },
+    {
+      "key": "mess_id",
+      "value": "1"
+    },
+    {
+      "key": "plan_id",
+      "value": "1"
     }
   ],
   "auth": {
@@ -38,8 +46,8 @@
   },
   "item": [
     {
-      "name": "Auth",
-      "description": "Login saves the bearer token onto the collection.",
+      "name": "Public",
+      "description": "No login. Throttled auth + contact.",
       "item": [
         {
           "name": "Login",
@@ -55,8 +63,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/auth/login",
-            "description": "Practice seats: president@paulmess.local / President@123, manager@paulmess.local / Manager@123, member@paulmess.local / Member@123, admin@bhuribhoj.local / Admin@123.",
+            "url": "{{base_url}}/public/auth/login",
+            "description": "Seeds: admin@bhuribhoj.local / Admin@123 · president@paulmess.local / President@123",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"president@paulmess.local\",\n  \"password\": \"President@123\",\n  \"device_name\": \"postman\"\n}",
@@ -78,14 +86,239 @@
                 "exec": [
                   "const json = pm.response.json();",
                   "if (json.token) {",
-                  "    pm.collectionVariables.set('token', json.token);",
-                  "    console.log('Saved token for the rest of the collection.');",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "  if (json.user && json.user.role) pm.collectionVariables.set('door', json.user.role);",
+                  "  console.log('Saved token; door=' + pm.collectionVariables.get('door'));",
                   "}"
                 ]
               }
             }
           ]
         },
+        {
+          "name": "Register email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/public/auth/register/email",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New President\",\n  \"email\": \"new@example.com\",\n  \"password\": \"Password@123\",\n  \"password_confirmation\": \"Password@123\",\n  \"mobile\": \"9800000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Register preview",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/public/auth/register/preview",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"paste-otp-token-from-email-link\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Register complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/public/auth/register/complete",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"paste-otp-token-from-email-link\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('token', json.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/public/auth/google",
+            "description": "Needs GOOGLE_CLIENT_ID. New accounts may need mobile.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"google-id-token\",\n  \"mobile\": \"9800000000\",\n  \"device_name\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Plans fetch (active only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/public/plans/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Settings fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/public/settings/fetch",
+            "description": "Public site identity + theme. Blank public_site_bengali / public_contact_email → null.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Contact",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/public/contact",
+            "description": "Needs public_contact_email in Admin → Configs. Throttle 8/min.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Visitor\",\n  \"mess\": \"Sample Mess\",\n  \"members\": 12,\n  \"phone\": \"9800000000\",\n  \"email\": \"visitor@example.com\",\n  \"message\": \"Hello, we want to know more about BhuriBhoj.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authorize",
+      "description": "Any signed-in active user. Bearer token.",
+      "item": [
         {
           "name": "Me",
           "request": {
@@ -96,8 +329,8 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/auth/me",
-            "description": "Current user. Avatar is included here and hidden on member lists."
+            "url": "{{base_url}}/authorize/auth/me",
+            "description": "Returns user + seat (next: plans | mess_setup | dashboard | admin)."
           }
         },
         {
@@ -114,11 +347,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/auth/profile",
-            "description": "Password is optional. When set, password_confirmation is required. Avatar is a data URL: data:image/jpeg;base64,...",
+            "url": "{{base_url}}/authorize/auth/profile",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Paul President\",\n  \"mobile\": \"9000000001\",\n  \"password\": \"\",\n  \"password_confirmation\": \"\"\n}",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"mobile\": \"9800000001\",\n  \"password\": null,\n  \"password_confirmation\": null,\n  \"avatar\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -141,8 +373,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/auth/logout",
-            "description": "Revokes the current token.",
+            "url": "{{base_url}}/authorize/auth/logout",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -157,11 +388,11 @@
       ]
     },
     {
-      "name": "Plans",
-      "description": "Public. No token.",
+      "name": "Admin",
+      "description": "role:admin. Platform + house (mess.ready for house).",
       "item": [
         {
-          "name": "Fetch plans",
+          "name": "Plans fetch (all)",
           "request": {
             "method": "POST",
             "header": [
@@ -174,127 +405,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/plans/fetch",
-            "description": "Active subscription plans.",
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Subscriptions",
-      "description": "Opens a new mess and returns a president token.",
-      "item": [
-        {
-          "name": "Purchase",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/subscriptions/purchase",
-            "description": "plan_id comes from Plans → Fetch. mess.code is optional and must be unique.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"plan_id\": 1,\n  \"mess\": {\n    \"name\": \"New Mess\",\n    \"address\": \"12 College Road\",\n    \"district\": \"Kolkata\",\n    \"pincode\": \"700001\",\n    \"contact_no\": \"9800000000\",\n    \"email\": \"newmess@example.com\",\n    \"fund_mode\": \"mess_and_manager\"\n  },\n  \"president\": {\n    \"name\": \"New President\",\n    \"email\": \"president@newmess.example\",\n    \"password\": \"President@123\",\n    \"mobile\": \"9800000001\",\n    \"room_no\": \"P1\"\n  },\n  \"device_name\": \"postman\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Mess invitations",
-      "description": "Token routes are public. Fetch, create, and cancel are admin only.",
-      "item": [
-        {
-          "name": "Fetch by token",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/mess-invitations/token/{{invitation_token}}/fetch",
-            "description": "Look up a pending invitation before the president accepts it.",
-            "auth": {
-              "type": "noauth"
-            }
-          }
-        },
-        {
-          "name": "Accept invitation",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/mess-invitations/token/{{invitation_token}}/accept",
-            "description": "Creates the mess and the president, then returns a token.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"mess\": {\n    \"name\": \"Invited Mess\",\n    \"address\": \"12 College Road\",\n    \"district\": \"Kolkata\",\n    \"pincode\": \"700001\",\n    \"contact_no\": \"9800000000\",\n    \"email\": \"invited@example.com\",\n    \"fund_mode\": \"manager_only\"\n  },\n  \"president\": {\n    \"name\": \"Invited President\",\n    \"password\": \"President@123\",\n    \"mobile\": \"9800000002\",\n    \"room_no\": \"P1\"\n  },\n  \"device_name\": \"postman\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "noauth"
-            }
-          }
-        },
-        {
-          "name": "Fetch invitations",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/mess-invitations/fetch?page=1",
-            "description": "Admin. Laravel page is a query param.",
+            "url": "{{base_url}}/admin/plans/fetch",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -307,7 +418,7 @@
           }
         },
         {
-          "name": "Create invitation",
+          "name": "Plans create",
           "request": {
             "method": "POST",
             "header": [
@@ -320,11 +431,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/mess-invitations/create",
-            "description": "Admin. expires_in_days is 1–30 and defaults to 7.",
+            "url": "{{base_url}}/admin/plans/create",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"plan_id\": 1,\n  \"email\": \"newpresident@example.com\",\n  \"mobile\": \"9800000099\",\n  \"mess_name\": \"Future Mess\",\n  \"expires_in_days\": 7\n}",
+              "raw": "{\n  \"name\": \"1 Month\",\n  \"duration_months\": 1,\n  \"price_inr\": 99,\n  \"is_active\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -334,7 +444,33 @@
           }
         },
         {
-          "name": "Cancel invitation",
+          "name": "Plans update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/admin/plans/update",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"1 Month\",\n  \"duration_months\": 1,\n  \"price_inr\": 99,\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Plans delete",
           "request": {
             "method": "DELETE",
             "header": [
@@ -343,18 +479,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/mess-invitations/{{record_id}}/cancel",
-            "description": "Admin. Only a pending invitation can be cancelled."
+            "url": "{{base_url}}/admin/plans/{{record_id}}/delete"
           }
-        }
-      ]
-    },
-    {
-      "name": "Dashboard",
-      "description": "President, manager, member, and admin.",
-      "item": [
+        },
         {
-          "name": "Fetch dashboard",
+          "name": "Payments fetch",
           "request": {
             "method": "POST",
             "header": [
@@ -367,44 +496,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/dashboard/fetch",
-            "description": "Returns user, mess_totals (deposits, expenses, funds, balance), and my_totals.",
+            "url": "{{base_url}}/admin/payments/fetch",
             "body": {
               "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Messes",
-      "description": "Fetch is any mess role. Update is president or admin.",
-      "item": [
-        {
-          "name": "Fetch mess",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/messes/fetch",
-            "description": "President, manager, and member receive their own mess. Admin receives a paginated list.",
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
+              "raw": "{\n  \"limit\": 20,\n  \"offset\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -414,180 +509,7 @@
           }
         },
         {
-          "name": "Update mess",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/messes/update",
-            "description": "Send only the fields you want to change. fund_mode is manager_only or mess_and_manager.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Paul Mess\",\n  \"address\": \"12 College Road\",\n  \"district\": \"Kolkata\",\n  \"pincode\": \"700001\",\n  \"contact_no\": \"9800000000\",\n  \"email\": \"paulmess@example.com\",\n  \"fund_mode\": \"mess_and_manager\",\n  \"monthly_due_amount\": 1500,\n  \"monthly_due_day\": 5,\n  \"late_fee_amount\": 50,\n  \"guest_chicken_price\": 80,\n  \"guest_fish_price\": 70,\n  \"guest_egg_price\": 20,\n  \"guest_veg_price\": 40\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Members",
-      "description": "Fetch is president or manager. Create and update are president.",
-      "item": [
-        {
-          "name": "Fetch members",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/members/fetch",
-            "description": "search matches name, email, mobile, member code, and a numeric id. role is president, manager, or member. status is active or inactive. room_no is exact. limit defaults to 10 (max 100). offset defaults to 0. Response: data, count, limit, offset, rooms.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"search\": \"paul\",\n  \"role\": \"member\",\n  \"status\": \"active\",\n  \"room_no\": \"12\",\n  \"limit\": 10,\n  \"offset\": 0\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Create member",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/members/create",
-            "description": "role defaults to member. Allowed roles: member, manager.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"New Member\",\n  \"email\": \"new.member@paulmess.local\",\n  \"password\": \"Member@123\",\n  \"mobile\": \"9000000099\",\n  \"room_no\": \"16\",\n  \"role\": \"member\",\n  \"status\": \"active\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Update member",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/members/update",
-            "description": "A president cannot mark their own seat inactive.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"user_id\": 9,\n  \"name\": \"Paul Member\",\n  \"mobile\": \"9000000003\",\n  \"room_no\": \"12\",\n  \"status\": \"active\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Managers",
-      "description": "President only. A month can have two managers.",
-      "item": [
-        {
-          "name": "Fetch managers",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/managers/fetch",
-            "description": "month defaults to the current YYYY-MM.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"month\": \"2026-10\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Assign manager",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/managers/assign",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"user_id\": 9,\n  \"month\": \"2026-10\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Remove manager",
+          "name": "Payments delete",
           "request": {
             "method": "DELETE",
             "header": [
@@ -596,18 +518,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/managers/{{record_id}}/remove",
-            "description": "record_id is the assignment id from Fetch managers, not the user id."
+            "url": "{{base_url}}/admin/payments/{{record_id}}/delete"
           }
-        }
-      ]
-    },
-    {
-      "name": "Deposits",
-      "description": null,
-      "item": [
+        },
         {
-          "name": "Fetch deposits",
+          "name": "Subscriptions fetch",
           "request": {
             "method": "POST",
             "header": [
@@ -620,11 +535,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/deposits/fetch",
-            "description": "A member only sees their own rows. Response: total_amount, data, count, limit, offset.",
+            "url": "{{base_url}}/admin/subscriptions/fetch",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 6,\n  \"fund_type\": \"manager_fund\",\n  \"deposit_type\": \"monthly\",\n  \"for_month\": \"2026-10\",\n  \"limit\": 20,\n  \"offset\": 0\n}",
+              "raw": "{\n  \"status\": null,\n  \"limit\": 20,\n  \"offset\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -634,230 +548,7 @@
           }
         },
         {
-          "name": "Create deposit",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/deposits/create",
-            "description": "fund_type: mess_fund or manager_fund. deposit_type: join, monthly, or extra.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"user_id\": 9,\n  \"fund_type\": \"manager_fund\",\n  \"deposit_type\": \"extra\",\n  \"amount\": 200,\n  \"deposited_on\": \"2026-10-18\",\n  \"for_month\": \"2026-10\",\n  \"note\": \"Extra deposit\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Monthly dues",
-      "description": "Generate and mark-overdue: president or manager. Waive: president. Pay: the member can pay their own.",
-      "item": [
-        {
-          "name": "Fetch dues",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/monthly-dues/fetch",
-            "description": "status: pending, paid, overdue, waived. month defaults to the current month.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"month\": \"2026-10\",\n  \"status\": \"pending\",\n  \"user_id\": 9\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Generate dues",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/monthly-dues/generate",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"month\": \"2026-10\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Pay due",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/monthly-dues/pay",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"due_id\": 1,\n  \"deposited_on\": \"2026-10-18\",\n  \"fund_type\": \"manager_fund\",\n  \"apply_late_fee\": false,\n  \"note\": \"Paid at the desk\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Waive due",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/monthly-dues/waive",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"due_id\": 1,\n  \"note\": \"Waived by the president\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Mark overdue",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/monthly-dues/mark-overdue",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"month\": \"2026-10\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Daily meals",
-      "description": null,
-      "item": [
-        {
-          "name": "Fetch meals",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/daily-meals/fetch",
-            "description": "meal_date defaults to today. A member only sees their own row.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"meal_date\": \"2026-10-18\",\n  \"user_id\": 9\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Save meals",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/daily-meals/save",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"meal_date\": \"2026-10-18\",\n  \"items\": [\n    {\n      \"user_id\": 9,\n      \"lunch_active\": true,\n      \"lunch_taken\": false,\n      \"dinner_active\": true,\n      \"dinner_taken\": false\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Delete meal",
+          "name": "Subscriptions delete",
           "request": {
             "method": "DELETE",
             "header": [
@@ -866,17 +557,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/daily-meals/{{record_id}}/delete"
+            "url": "{{base_url}}/admin/subscriptions/{{record_id}}/delete"
           }
-        }
-      ]
-    },
-    {
-      "name": "Daily menus",
-      "description": null,
-      "item": [
+        },
         {
-          "name": "Fetch menus",
+          "name": "Users fetch",
           "request": {
             "method": "POST",
             "header": [
@@ -889,11 +574,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/daily-menus/fetch",
-            "description": "Send menu_date for one day, or from_date and to_date. Defaults to the current month.",
+            "url": "{{base_url}}/admin/users/fetch",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"from_date\": \"2026-10-01\",\n  \"to_date\": \"2026-10-31\"\n}",
+              "raw": "{\n  \"limit\": 20,\n  \"offset\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -903,7 +587,7 @@
           }
         },
         {
-          "name": "Create menu",
+          "name": "Users update",
           "request": {
             "method": "POST",
             "header": [
@@ -916,11 +600,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/daily-menus/create",
-            "description": "meal_type is lunch or dinner. Saving the same date and meal updates the dishes.",
+            "url": "{{base_url}}/admin/users/update",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"menu_date\": \"2026-10-18\",\n  \"meal_type\": \"lunch\",\n  \"dishes\": \"Rice, dal, vegetable\"\n}",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"User\",\n  \"email\": \"user@example.com\",\n  \"mobile\": null,\n  \"role\": \"member\",\n  \"status\": \"active\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -930,7 +613,7 @@
           }
         },
         {
-          "name": "Delete menu",
+          "name": "Users delete",
           "request": {
             "method": "DELETE",
             "header": [
@@ -939,17 +622,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/daily-menus/{{record_id}}/delete"
+            "url": "{{base_url}}/admin/users/{{record_id}}/delete"
           }
-        }
-      ]
-    },
-    {
-      "name": "Market purchases",
-      "description": null,
-      "item": [
+        },
         {
-          "name": "Fetch purchases",
+          "name": "Messes open",
           "request": {
             "method": "POST",
             "header": [
@@ -962,10 +639,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/market-purchases/fetch",
+            "url": "{{base_url}}/admin/messes/open",
+            "description": "Admin can open a mess; optional president_user_id.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"from_date\": \"2026-10-01\",\n  \"to_date\": \"2026-10-31\"\n}",
+              "raw": "{\n  \"name\": \"Admin Opened Mess\",\n  \"address\": \"12 College Road\",\n  \"district\": \"Kolkata\",\n  \"pincode\": \"700001\",\n  \"contact_no\": \"9800000000\",\n  \"email\": \"mess@example.com\",\n  \"fund_type\": \"manager_only\",\n  \"president_user_id\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -975,7 +653,7 @@
           }
         },
         {
-          "name": "Create purchase",
+          "name": "Coupons fetch",
           "request": {
             "method": "POST",
             "header": [
@@ -988,224 +666,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/market-purchases/create",
-            "description": "create_expense also writes an expense row when true.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"purchase_date\": \"2026-10-18\",\n  \"item_name\": \"Rice\",\n  \"quantity\": 5,\n  \"unit\": \"kg\",\n  \"amount\": 250,\n  \"note\": \"Morning market\",\n  \"create_expense\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Delete purchase",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/market-purchases/{{record_id}}/delete"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Market duties",
-      "description": null,
-      "item": [
-        {
-          "name": "Fetch duties",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/market-duties/fetch",
-            "description": "status: assigned, done, missed, swapped. A member only sees their own duties.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"from_date\": \"2026-10-01\",\n  \"to_date\": \"2026-10-31\",\n  \"status\": \"assigned\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Assign duty",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/market-duties/create",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"user_id\": 9,\n  \"duty_date\": \"2026-10-20\",\n  \"note\": \"Morning market\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Update duty status",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/market-duties/status",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"duty_id\": 1,\n  \"status\": \"done\",\n  \"note\": \"Bought rice and dal\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Delete duty",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/market-duties/{{record_id}}/delete"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Guest meals",
-      "description": null,
-      "item": [
-        {
-          "name": "Fetch guest meals",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/guest-meals/fetch?page=1",
-            "description": "page is a query param. A member only sees meals booked against them.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"meal_date\": \"2026-10-18\",\n  \"member_id\": 9\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Create guest meal",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/guest-meals/create",
-            "description": "guest_type: personal or guest. dish_type: chicken, fish, egg, veg. Price comes from the mess guest prices.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"member_id\": 9,\n  \"guest_type\": \"guest\",\n  \"dish_type\": \"chicken\",\n  \"quantity\": 1,\n  \"meal_date\": \"2026-10-18\",\n  \"meal_type\": \"lunch\",\n  \"guest_name\": \"Ravi's friend\",\n  \"note\": \"\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Delete guest meal",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/guest-meals/{{record_id}}/delete"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Constant expenses",
-      "description": "Create and delete are president only.",
-      "item": [
-        {
-          "name": "Fetch constant expenses",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/constant-expenses/fetch",
+            "url": "{{base_url}}/admin/coupons/fetch",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1218,7 +679,7 @@
           }
         },
         {
-          "name": "Create constant expense",
+          "name": "Coupons create",
           "request": {
             "method": "POST",
             "header": [
@@ -1231,10 +692,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/constant-expenses/create",
+            "url": "{{base_url}}/admin/coupons/create",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Cook salary\",\n  \"amount\": 8000,\n  \"fund_type\": \"manager_fund\",\n  \"is_active\": true\n}",
+              "raw": "{\n  \"code\": \"LAUNCH100\",\n  \"discount_type\": \"percent\",\n  \"discount_value\": 100,\n  \"usage_limit\": 50,\n  \"is_active\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1244,7 +705,33 @@
           }
         },
         {
-          "name": "Delete constant expense",
+          "name": "Coupons update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/admin/coupons/update",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Coupons delete",
           "request": {
             "method": "DELETE",
             "header": [
@@ -1253,44 +740,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/constant-expenses/{{record_id}}/delete"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Expenses",
-      "description": null,
-      "item": [
-        {
-          "name": "Fetch expenses",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/expenses/fetch?page=1",
-            "description": "category: market, constant, feast, tour, other. page is a query param.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fund_type\": \"manager_fund\",\n  \"category\": \"market\",\n  \"from_date\": \"2026-10-01\",\n  \"to_date\": \"2026-10-31\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
+            "url": "{{base_url}}/admin/coupons/{{record_id}}/delete"
           }
         },
         {
-          "name": "Create expense",
+          "name": "Configs fetch",
           "request": {
             "method": "POST",
             "header": [
@@ -1303,52 +757,7 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/expenses/create",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fund_type\": \"manager_fund\",\n  \"category\": \"market\",\n  \"title\": \"Morning market\",\n  \"amount\": 250,\n  \"spent_on\": \"2026-10-18\",\n  \"note\": \"Rice\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Delete expense",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/expenses/{{record_id}}/delete"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Mess rules",
-      "description": "Create and delete are president only.",
-      "item": [
-        {
-          "name": "Fetch rules",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{base_url}}/mess-rules/fetch",
+            "url": "{{base_url}}/admin/configs/fetch",
             "body": {
               "mode": "raw",
               "raw": "{}",
@@ -1361,7 +770,7 @@
           }
         },
         {
-          "name": "Create rule",
+          "name": "Configs save",
           "request": {
             "method": "POST",
             "header": [
@@ -1374,10 +783,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/mess-rules/create",
+            "url": "{{base_url}}/admin/configs/save",
+            "description": "Blank public_contact_email or public_site_bengali hides them on the public site.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Late meal notice\",\n  \"description\": \"Tell the manager before 10am if you will miss lunch.\",\n  \"fine_amount\": 50,\n  \"is_active\": true\n}",
+              "raw": "{\n  \"config_key\": \"public_site_bengali\",\n  \"config_value\": \"\",\n  \"note\": \"Blank = hide Bengali name\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1387,7 +797,7 @@
           }
         },
         {
-          "name": "Delete rule",
+          "name": "Configs delete",
           "request": {
             "method": "DELETE",
             "header": [
@@ -1396,17 +806,95 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/mess-rules/{{record_id}}/delete"
+            "url": "{{base_url}}/admin/configs/{{record_id}}/delete"
+          }
+        },
+        {
+          "name": "Settings fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/admin/settings/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Settings save",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/admin/settings/save",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"theme\": \"black-yellow\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Logs fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/admin/logs/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"limit\": 20,\n  \"offset\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         }
       ]
     },
     {
-      "name": "Fines",
-      "description": "Waive and delete are president. A member can pay their own fine.",
+      "name": "President",
+      "description": "role:president. Buy plan then open mess, then house routes (mess.ready).",
       "item": [
         {
-          "name": "Fetch fines",
+          "name": "Subscriptions order",
           "request": {
             "method": "POST",
             "header": [
@@ -1419,11 +907,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/fines/fetch",
-            "description": "status: pending, paid, waived.",
+            "url": "{{base_url}}/president/subscriptions/order",
+            "description": "Creates Razorpay order or free coupon activation. Replaces old /subscriptions/purchase.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"pending\",\n  \"user_id\": 9\n}",
+              "raw": "{\n  \"plan_id\": 1,\n  \"coupon_code\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1433,7 +921,7 @@
           }
         },
         {
-          "name": "Create fine",
+          "name": "Subscriptions fail",
           "request": {
             "method": "POST",
             "header": [
@@ -1446,10 +934,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/fines/create",
+            "url": "{{base_url}}/president/subscriptions/fail",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": 9,\n  \"mess_rule_id\": 1,\n  \"reason\": \"Missed meal notice\",\n  \"amount\": 50,\n  \"fined_on\": \"2026-10-18\"\n}",
+              "raw": "{\n  \"razorpay_order_id\": \"order_xxx\",\n  \"razorpay_payment_id\": null,\n  \"failure_reason\": \"User closed checkout\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1459,7 +947,7 @@
           }
         },
         {
-          "name": "Pay fine",
+          "name": "Subscriptions verify",
           "request": {
             "method": "POST",
             "header": [
@@ -1472,10 +960,11 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/fines/pay",
+            "url": "{{base_url}}/president/subscriptions/verify",
+            "description": "Payment status must be captured (not only authorized).",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fine_id\": 1\n}",
+              "raw": "{\n  \"razorpay_order_id\": \"order_xxx\",\n  \"razorpay_payment_id\": \"pay_xxx\",\n  \"razorpay_signature\": \"sig_xxx\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1485,7 +974,7 @@
           }
         },
         {
-          "name": "Waive fine",
+          "name": "Subscriptions fetch",
           "request": {
             "method": "POST",
             "header": [
@@ -1498,10 +987,10 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/fines/waive",
+            "url": "{{base_url}}/president/subscriptions/fetch",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fine_id\": 1\n}",
+              "raw": "{\n  \"limit\": 20,\n  \"offset\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1511,7 +1000,145 @@
           }
         },
         {
-          "name": "Delete fine",
+          "name": "Messes open",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/president/messes/open",
+            "description": "After active subscription with no mess yet (seat.next = mess_setup).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Paul Mess\",\n  \"address\": \"12 College Road\",\n  \"district\": \"Kolkata\",\n  \"pincode\": \"700001\",\n  \"contact_no\": \"9800000000\",\n  \"email\": \"paulmess@example.com\",\n  \"fund_type\": \"mess_and_manager\",\n  \"s_deposite_amount\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "House ({{door}})",
+      "description": "Uses collection var door = admin|president|manager|member. Only call routes that exist for that role (see API-FRONTEND.md).",
+      "item": [
+        {
+          "name": "Dashboard fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/dashboard/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Messes fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/messes/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Messes update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/messes/update",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"theme\": \"sea-green\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Messes assign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/messes/assign",
+            "description": "admin/president only.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 2,\n  \"seat\": \"manager\",\n  \"from_date\": \"01-11-2026\",\n  \"to_date\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Messes delete",
           "request": {
             "method": "DELETE",
             "header": [
@@ -1520,7 +1147,632 @@
                 "value": "application/json"
               }
             ],
-            "url": "{{base_url}}/fines/{{record_id}}/delete"
+            "url": "{{base_url}}/{{door}}/messes/{{record_id}}/delete"
+          }
+        },
+        {
+          "name": "Members fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/members/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Members create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/members/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Member\",\n  \"email\": \"member2@example.com\",\n  \"password\": \"Member@123\",\n  \"mobile\": \"9800000011\",\n  \"role\": \"member\",\n  \"room_no\": \"A1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Members update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/members/update",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 2,\n  \"name\": \"Member\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deposits fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/deposits/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deposits create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/deposits/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 2,\n  \"amount\": 500,\n  \"deposited_on\": \"12-11-2026\",\n  \"note\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deposits update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/deposits/update",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"amount\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deposits delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/deposits/{{record_id}}/delete"
+          }
+        },
+        {
+          "name": "Daily meals fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/daily-meals/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Daily meals save",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/daily-meals/save",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meal_date\": \"12-11-2026\",\n  \"meals\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Daily meals delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/daily-meals/{{record_id}}/delete"
+          }
+        },
+        {
+          "name": "Meal aways fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/meal-aways/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Meal aways save",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/meal-aways/save",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from_date\": \"12-11-2026\",\n  \"to_date\": \"13-11-2026\",\n  \"meal_types\": [\n    \"lunch\",\n    \"dinner\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Meal aways delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/meal-aways/{{record_id}}/delete"
+          }
+        },
+        {
+          "name": "Mess meals fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/mess-meals/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Mess meals save",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/mess-meals/save",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meals_type\": \"lunch\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Daily menus fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/daily-menus/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Daily menus create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/daily-menus/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"menu_date\": \"12-11-2026\",\n  \"meals_type\": \"lunch\",\n  \"items\": \"Rice, Dal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Daily menus delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/daily-menus/{{record_id}}/delete"
+          }
+        },
+        {
+          "name": "Expenses fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/expenses/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Expenses create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/expenses/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Vegetables\",\n  \"amount\": 320,\n  \"spent_on\": \"12-11-2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Expenses update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/expenses/update",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"amount\": 350\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Expenses delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/expenses/{{record_id}}/delete"
+          }
+        },
+        {
+          "name": "Guest meal setup fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/guest-meal-setup/fetch",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Guest meal setup create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/guest-meal-setup/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meals_type\": \"lunch\",\n  \"amount\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Guest meal setup update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/guest-meal-setup/update",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"amount\": 60\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Guest meal setup delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/guest-meal-setup/{{record_id}}/delete"
+          }
+        },
+        {
+          "name": "Bills fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/{{door}}/bills/fetch",
+            "description": "president / manager / member (not admin).",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         }
       ]
