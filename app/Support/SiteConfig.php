@@ -47,7 +47,7 @@ final class SiteConfig
         return [
             self::CONTACT_EMAIL => '',
             self::SITE_NAME => 'BhuriBhoj',
-            self::SITE_NAME_BN => 'ভুরিভোজ',
+            self::SITE_NAME_BN => '',
             self::SITE_BLURB => 'A private ledger and kitchen book for the mess. Meals, money, and members, held in one house.',
             self::SITE_COPYRIGHT => '© 2026 BhuriBhoj',
             self::LEGAL_PRIVACY => "# Who can see a mess\nA mess ledger is visible to the people of that house, and to the platform admin who keeps the subscriptions.\n\n# Platform access\nThe platform admin can see subscription and house records needed to keep the service running.",
@@ -61,7 +61,7 @@ final class SiteConfig
      * @return array{
      *   contact_email: string|null,
      *   site_name: string,
-     *   site_name_bn: string,
+     *   site_name_bn: string|null,
      *   site_blurb: string,
      *   site_copyright: string,
      *   legal_privacy: string,
@@ -101,14 +101,38 @@ final class SiteConfig
             return $defaults[$key];
         };
 
-        $email = '';
-        foreach (array_merge([self::CONTACT_EMAIL], self::LEGACY[self::CONTACT_EMAIL] ?? []) as $candidate) {
-            $raw = $rows->get($candidate);
-            if (is_string($raw) && trim($raw) !== '') {
-                $email = trim($raw);
-                break;
+        /**
+         * Optional fields: blank or missing = hidden (null).
+         * If the primary key row exists (even empty), do not fall back to legacy/defaults.
+         */
+        $readOptional = static function (string $key) use ($rows): ?string {
+            if ($rows->has($key)) {
+                $raw = $rows->get($key);
+                if (! is_string($raw)) {
+                    return null;
+                }
+                $value = trim($raw);
+
+                return $value !== '' ? $value : null;
             }
-        }
+
+            foreach (self::LEGACY[$key] ?? [] as $candidate) {
+                if (! $rows->has($candidate)) {
+                    continue;
+                }
+                $raw = $rows->get($candidate);
+                if (! is_string($raw)) {
+                    return null;
+                }
+                $value = trim($raw);
+
+                return $value !== '' ? $value : null;
+            }
+
+            return null;
+        };
+
+        $email = $readOptional(self::CONTACT_EMAIL) ?? '';
         if ($email === '') {
             $email = trim((string) config('services.contact_inbox'));
         }
@@ -116,7 +140,7 @@ final class SiteConfig
         return [
             'contact_email' => $email !== '' ? $email : null,
             'site_name' => $read(self::SITE_NAME),
-            'site_name_bn' => $read(self::SITE_NAME_BN),
+            'site_name_bn' => $readOptional(self::SITE_NAME_BN),
             'site_blurb' => $read(self::SITE_BLURB),
             'site_copyright' => $read(self::SITE_COPYRIGHT),
             'legal_privacy' => $read(self::LEGAL_PRIVACY),
