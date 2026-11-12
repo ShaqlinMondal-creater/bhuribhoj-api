@@ -15,6 +15,19 @@ class PlanController extends Controller
     public function plansFetch(): JsonResponse
     {
         $plans = PlanModel::query()
+            ->where('is_active', true)
+            ->orderBy('duration_months')
+            ->orderBy('id')
+            ->get(['id', 'name', 'slug', 'duration_months', 'price_inr', 'is_active']);
+
+        return response()->json([
+            'data' => $plans,
+        ]);
+    }
+
+    public function plansAdminFetch(): JsonResponse
+    {
+        $plans = PlanModel::query()
             ->orderBy('duration_months')
             ->orderBy('id')
             ->get(['id', 'name', 'slug', 'duration_months', 'price_inr', 'is_active']);

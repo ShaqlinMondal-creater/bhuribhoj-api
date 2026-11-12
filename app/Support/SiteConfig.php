@@ -132,13 +132,9 @@ final class SiteConfig
             return null;
         };
 
-        $email = $readOptional(self::CONTACT_EMAIL) ?? '';
-        if ($email === '') {
-            $email = trim((string) config('services.contact_inbox'));
-        }
-
+        // Blank/missing public_contact_email stays hidden — no CONTACT_INBOX override.
         return [
-            'contact_email' => $email !== '' ? $email : null,
+            'contact_email' => $readOptional(self::CONTACT_EMAIL),
             'site_name' => $read(self::SITE_NAME),
             'site_name_bn' => $readOptional(self::SITE_NAME_BN),
             'site_blurb' => $read(self::SITE_BLURB),

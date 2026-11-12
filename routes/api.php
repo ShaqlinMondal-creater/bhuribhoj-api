@@ -35,11 +35,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('public')->group(function () {
     Route::prefix('auth')->group(function () {
-        Route::post('/login', [AuthController::class, 'authLogin']);
-        Route::post('/register/email', [RegisterController::class, 'registerEmail']);
-        Route::post('/register/preview', [RegisterController::class, 'registerPreview']);
-        Route::post('/register/complete', [RegisterController::class, 'registerComplete']);
-        Route::post('/google', [RegisterController::class, 'google']);
+        Route::post('/login', [AuthController::class, 'authLogin'])->middleware('throttle:10,1');
+        Route::post('/register/email', [RegisterController::class, 'registerEmail'])->middleware('throttle:5,1');
+        Route::post('/register/preview', [RegisterController::class, 'registerPreview'])->middleware('throttle:10,1');
+        Route::post('/register/complete', [RegisterController::class, 'registerComplete'])->middleware('throttle:5,1');
+        Route::post('/google', [RegisterController::class, 'google'])->middleware('throttle:10,1');
     });
 
     Route::post('/plans/fetch', [PlanController::class, 'plansFetch']);
@@ -47,7 +47,7 @@ Route::prefix('public')->group(function () {
     Route::post('/contact', [ContactController::class, 'contactSend'])->middleware('throttle:8,1');
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::prefix('authorize')->group(function () {
         Route::prefix('auth')->group(function () {
             Route::get('/me', [AuthController::class, 'authMe']);
@@ -58,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::prefix('plans')->group(function () {
+            Route::post('/fetch', [PlanController::class, 'plansAdminFetch']);
             Route::post('/create', [PlanController::class, 'plansCreate']);
             Route::post('/update', [PlanController::class, 'plansUpdate']);
             Route::delete('/{id}/delete', [PlanController::class, 'plansDelete']);

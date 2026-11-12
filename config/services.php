@@ -39,7 +39,8 @@ return [
 
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
 
-    'contact_inbox' => env('CONTACT_INBOX', env('MAIL_FROM_ADDRESS', 'hello@bhuribhoj.com')),
+    // Legacy only. Contact inbox is Admin → Configs → public_contact_email.
+    'contact_inbox' => env('CONTACT_INBOX'),
 
     'slack' => [
         'notifications' => [

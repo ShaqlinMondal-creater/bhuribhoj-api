@@ -162,7 +162,9 @@ class RegisterController extends Controller
                 $message->to($user->email)->subject('Your BhuriBhoj registration is done');
             });
         } else {
-            if ($user->status !== 'active' && ($user->email_verified_at || $user->password)) {
+            // Admin-deactivated accounts stay blocked. Incomplete email signups may finish via Google.
+            $incomplete = ! $user->email_verified_at && ! $user->password;
+            if ($user->status !== 'active' && ! $incomplete) {
                 throw ValidationException::withMessages([
                     'email' => ['This account is inactive.'],
                 ]);

@@ -27,10 +27,18 @@ class AccountSeat
         $hasMess = $user->mess_id !== null;
         $hasSubscription = $subscription !== null;
 
+        if (! $hasSubscription) {
+            $next = 'plans';
+        } elseif (! $hasMess) {
+            $next = 'mess_setup';
+        } else {
+            $next = 'dashboard';
+        }
+
         return [
             'mess' => $hasMess,
             'subscription' => $hasSubscription,
-            'next' => $hasSubscription ? 'dashboard' : 'plans',
+            'next' => $next,
             'subscription_ends_on' => $subscription?->ends_on?->toDateString(),
             'plan_id' => $subscription ? (int) $subscription->plan_id : null,
         ];

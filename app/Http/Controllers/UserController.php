@@ -109,6 +109,8 @@ class UserController extends Controller
             ]);
         }
 
+        $wasActive = $user->status === 'active';
+
         $user->fill([
             'name' => $data['name'],
             'email' => $data['email'],
@@ -116,6 +118,10 @@ class UserController extends Controller
             'role' => $data['role'],
             'status' => $data['status'],
         ])->save();
+
+        if ($wasActive && $data['status'] === 'inactive') {
+            $user->tokens()->delete();
+        }
 
         ActivityLogModel::record(
             'user.update',

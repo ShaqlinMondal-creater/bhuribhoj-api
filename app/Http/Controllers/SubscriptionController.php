@@ -327,7 +327,7 @@ class SubscriptionController extends Controller
         $plan = PlanModel::query()->findOrFail($subscription->plan_id);
         $paid = (int) ($payment['amount'] ?? 0);
         $expected = ((int) $subscription->amount_paid_inr) * 100;
-        $captured = in_array($payment['status'] ?? '', ['captured', 'authorized'], true);
+        $captured = ($payment['status'] ?? '') === 'captured';
 
         if (! $captured || ($payment['order_id'] ?? '') !== $data['razorpay_order_id'] || $paid !== $expected) {
             $this->logPayment($user->id, $subscription, 'failed', $data['razorpay_payment_id'], 'Razorpay has not captured this payment.');
