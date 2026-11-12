@@ -50,8 +50,8 @@ final class SiteConfig
             self::SITE_NAME_BN => 'ভুরিভোজ',
             self::SITE_BLURB => 'A private ledger and kitchen book for the mess. Meals, money, and members, held in one house.',
             self::SITE_COPYRIGHT => '© 2026 BhuriBhoj',
-            self::LEGAL_PRIVACY => 'Privacy. A mess ledger is visible to the people of that house, and to the platform admin who keeps the subscriptions.',
-            self::LEGAL_TERMS => 'Terms. One subscription covers one mess, for a month, a semester, or a year. The president opens it.',
+            self::LEGAL_PRIVACY => "# Who can see a mess\nA mess ledger is visible to the people of that house, and to the platform admin who keeps the subscriptions.\n\n# Platform access\nThe platform admin can see subscription and house records needed to keep the service running.",
+            self::LEGAL_TERMS => "# One subscription\nOne subscription covers one mess, for a month, a semester, or a year.\n\n# Who opens the house\nThe president opens it and manages the seat for that mess.",
             self::CREDIT_NAME => 'liwaas.com',
             self::CREDIT_URL => 'https://liwaas.com',
         ];
