@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLogModel;
+use App\Models\ContactInquiryModel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -37,6 +38,17 @@ class ContactController extends Controller
             ]);
         }
 
+        $inquiry = ContactInquiryModel::query()->create([
+            'name' => $data['name'],
+            'mess' => $data['mess'],
+            'members' => $data['members'],
+            'phone' => $phone !== '' ? $phone : null,
+            'email' => $email !== '' ? $email : null,
+            'message' => $data['message'],
+            'status' => 'open',
+            'ip' => $request->ip(),
+        ]);
+
         Mail::send('mail.contact-inquiry', [
             'inquiry' => [
                 'name' => $data['name'],
@@ -58,7 +70,7 @@ class ContactController extends Controller
             'Contact from '.$data['name'].' about '.$data['mess'].'.',
             null,
             'contact',
-            null,
+            $inquiry->id,
             null,
             [
                 'name' => $data['name'],

@@ -113,6 +113,7 @@ php artisan route:list --path=api
 | Configs | `POST …/admin/configs/fetch\|save`, `DELETE …/admin/configs/{id}/delete` |
 | Settings (theme) | `POST …/admin/settings/fetch\|save` |
 | Logs | `POST …/admin/logs/fetch` |
+| Contact support | `POST …/admin/contact-support/fetch\|reply\|status` |
 
 Admin also has the full house set under `/api/admin/…` when `mess.ready` (pick mess via admin UI / `mess_id` as the API expects).
 

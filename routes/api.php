@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\ContactSupportController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\DailyMealController;
 use App\Http\Controllers\MealAwayController;
@@ -94,6 +95,12 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         });
 
         Route::post('/logs/fetch', [ActivityLogController::class, 'logsFetch']);
+
+        Route::prefix('contact-support')->group(function () {
+            Route::post('/fetch', [ContactSupportController::class, 'contactSupportFetch']);
+            Route::post('/reply', [ContactSupportController::class, 'contactSupportReply']);
+            Route::post('/status', [ContactSupportController::class, 'contactSupportStatus']);
+        });
 
         Route::middleware('mess.ready')->group(function () {
             Route::prefix('messes')->group(function () {
