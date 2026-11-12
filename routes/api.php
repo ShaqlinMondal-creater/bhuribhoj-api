@@ -45,7 +45,7 @@ Route::prefix('public')->group(function () {
 
     Route::post('/plans/fetch', [PlanController::class, 'plansFetch']);
     Route::post('/settings/fetch', [PlatformSettingsController::class, 'settingsFetch']);
-    Route::post('/contact', [ContactController::class, 'contactSend'])->middleware('throttle:8,1');
+    Route::post('/contact', [ContactController::class, 'contactSend'])->middleware('throttle:5,1');
 });
 
 Route::middleware(['auth:sanctum', 'active'])->group(function () {
@@ -98,9 +98,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
         Route::prefix('contact-support')->group(function () {
             Route::post('/fetch', [ContactSupportController::class, 'contactSupportFetch']);
-            Route::post('/start', [ContactSupportController::class, 'contactSupportStart']);
+            Route::post('/start', [ContactSupportController::class, 'contactSupportStart'])->middleware('throttle:20,60');
             Route::post('/update', [ContactSupportController::class, 'contactSupportUpdate']);
-            Route::post('/reply', [ContactSupportController::class, 'contactSupportReply']);
+            Route::post('/reply', [ContactSupportController::class, 'contactSupportReply'])->middleware('throttle:20,60');
             Route::post('/status', [ContactSupportController::class, 'contactSupportStatus']);
         });
 

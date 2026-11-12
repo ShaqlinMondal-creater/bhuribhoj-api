@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class ContactSupportController extends Controller
 {
@@ -73,11 +74,12 @@ class ContactSupportController extends Controller
         $actor = $request->user();
         $to = Str::lower(trim($data['email']));
         $phone = trim((string) ($data['phone'] ?? ''));
-        $mess = trim((string) ($data['mess'] ?? ''));
+        $mess = $this->headerSafe((string) ($data['mess'] ?? ''));
+        $name = $this->headerSafe($data['name']);
         $body = trim($data['message']);
 
         $inquiry = ContactInquiryModel::query()->create([
-            'name' => $data['name'],
+            'name' => $name,
             'mess' => $mess !== '' ? $mess : 'Direct support',
             'members' => (int) ($data['members'] ?? 1),
             'phone' => $phone !== '' ? $phone : null,
@@ -87,17 +89,22 @@ class ContactSupportController extends Controller
             'ip' => $request->ip(),
         ]);
 
-        Mail::send('mail.contact-reply', [
-            'name' => $inquiry->name,
-            'mess' => $inquiry->mess,
-            'reply' => $body,
-        ], function ($message) use ($to, $inquiry) {
-            $message->to($to, $inquiry->name)->subject('Message from BhuriBhoj support');
-            $inbox = PlatformSettingsController::contactInbox();
-            if ($inbox !== '') {
-                $message->replyTo($inbox, 'BhuriBhoj Support');
-            }
-        });
+        try {
+            Mail::send('mail.contact-reply', [
+                'name' => $inquiry->name,
+                'mess' => $inquiry->mess,
+                'reply' => $body,
+            ], function ($message) use ($to, $inquiry) {
+                $message->to($to, $inquiry->name)->subject('Message from BhuriBhoj support');
+                $inbox = PlatformSettingsController::contactInbox();
+                if ($inbox !== '') {
+                    $message->replyTo($inbox, 'BhuriBhoj Support');
+                }
+            });
+        } catch (Throwable $e) {
+            $inquiry->delete();
+            throw $e;
+        }
 
         $reply = ContactInquiryReplyModel::query()->create([
             'contact_inquiry_id' => $inquiry->id,
@@ -142,6 +149,12 @@ class ContactSupportController extends Controller
         }
 
         $changes = collect($data)->except(['id'])->all();
+        if (array_key_exists('name', $changes)) {
+            $changes['name'] = $this->headerSafe((string) $changes['name']);
+        }
+        if (array_key_exists('mess', $changes)) {
+            $changes['mess'] = $this->headerSafe((string) $changes['mess']);
+        }
         if (array_key_exists('phone', $changes)) {
             $phone = trim((string) ($changes['phone'] ?? ''));
             $changes['phone'] = $phone !== '' ? $phone : null;
@@ -192,8 +205,14 @@ class ContactSupportController extends Controller
             ]);
         }
 
+        if ($inquiry->status === 'closed') {
+            throw ValidationException::withMessages([
+                'status' => ['Reopen this thread before sending another reply.'],
+            ]);
+        }
+
         if (array_key_exists('name', $data)) {
-            $inquiry->name = $data['name'];
+            $inquiry->name = $this->headerSafe($data['name']);
         }
         if (array_key_exists('email', $data)) {
             $email = trim((string) ($data['email'] ?? ''));
@@ -232,9 +251,7 @@ class ContactSupportController extends Controller
             'emailed_to' => $to,
         ]);
 
-        if ($inquiry->status !== 'closed') {
-            $inquiry->forceFill(['status' => 'replied'])->save();
-        }
+        $inquiry->forceFill(['status' => 'replied'])->save();
 
         ActivityLogModel::record(
             'contact.reply',
@@ -317,5 +334,10 @@ class ContactSupportController extends Controller
                 ];
             })->values()->all(),
         ];
+    }
+
+    private function headerSafe(string $value): string
+    {
+        return trim(str_replace(["\r", "\n"], ' ', $value));
     }
 }
