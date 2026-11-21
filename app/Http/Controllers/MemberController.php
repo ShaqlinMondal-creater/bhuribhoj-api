@@ -298,29 +298,13 @@ class MemberController extends Controller
 
         $data = $request->validate([
             'user_id' => ['required', 'integer'],
-            'president' => ['sometimes', 'boolean'],
-            'manager' => ['sometimes', 'boolean'],
+            'manager' => ['required', 'boolean'],
         ]);
-
-        if (! array_key_exists('president', $data) && ! array_key_exists('manager', $data)) {
-            throw ValidationException::withMessages([
-                'seats' => ['Provide president and/or manager.'],
-            ]);
-        }
 
         $targetId = (int) $data['user_id'];
 
-        if (array_key_exists('president', $data)) {
-            if ($data['president'] === true) {
-                MessSeats::setPresident($messId, $targetId);
-            } else {
-                MessSeats::apply($messId, $targetId, ['president' => false], (int) $actor->id);
-            }
-        }
-
-        if (array_key_exists('manager', $data)) {
-            MessSeats::setManager($messId, $targetId, (bool) $data['manager']);
-        }
+        // President seat is only changed via mess config / admin assign.
+        MessSeats::setManager($messId, $targetId, (bool) $data['manager']);
 
         $member = UserModel::query()->where('id', $targetId)->where('mess_id', $messId)->firstOrFail();
 
@@ -332,8 +316,7 @@ class MemberController extends Controller
             $member->id,
             $messId,
             [
-                'president' => $data['president'] ?? null,
-                'manager' => $data['manager'] ?? null,
+                'manager' => (bool) $data['manager'],
             ],
             $request->ip(),
         );
