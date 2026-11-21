@@ -4,11 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesMessId;
 use App\Models\ActivityLogModel;
+use App\Models\DailyMealModel;
+use App\Models\DepositModel;
+use App\Models\MealAwayModel;
 use App\Models\MessModel;
+use App\Models\PaymentLogModel;
 use App\Models\UserModel;
 use App\Support\MemberCodeGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -217,6 +222,83 @@ class MemberController extends Controller
                 'role',
                 'status',
             ]),
+        ]);
+    }
+
+    public function membersDelete(Request $request, int $id): JsonResponse
+    {
+        $actor = $request->user();
+        $messId = $this->resolveMessId($actor, $request);
+
+        $member = UserModel::query()
+            ->where('id', $id)
+            ->where('mess_id', $messId)
+            ->whereIn('role', ['president', 'manager', 'member'])
+            ->first();
+
+        if (! $member) {
+            throw ValidationException::withMessages([
+                'id' => ['That member was not found in this mess.'],
+            ]);
+        }
+
+        if ($member->id === $actor->id) {
+            throw ValidationException::withMessages([
+                'id' => ['You cannot delete your own seat.'],
+            ]);
+        }
+
+        if ($member->role === 'president') {
+            throw ValidationException::withMessages([
+                'id' => ['The president seat cannot be deleted from the members list.'],
+            ]);
+        }
+
+        $mess = MessModel::query()->find($messId);
+        if ($mess && (int) $mess->president_user_id === (int) $member->id) {
+            throw ValidationException::withMessages([
+                'id' => ['This account is still the mess president, so it cannot be deleted.'],
+            ]);
+        }
+
+        if (PaymentLogModel::query()->where('user_id', $member->id)->exists()) {
+            throw ValidationException::withMessages([
+                'id' => ['This member still has payment history, so the account cannot be deleted. Mark them inactive instead.'],
+            ]);
+        }
+
+        $name = $member->name;
+        $role = $member->role;
+        $code = $member->member_code;
+
+        DB::transaction(function () use ($member, $messId) {
+            DailyMealModel::query()->where('mess_id', $messId)->where('user_id', $member->id)->delete();
+            MealAwayModel::query()->where('mess_id', $messId)->where('user_id', $member->id)->delete();
+            DepositModel::query()->where('mess_id', $messId)->where('user_id', $member->id)->delete();
+            DepositModel::query()->where('mess_id', $messId)->where('added_by', $member->id)->update(['added_by' => null]);
+
+            MessModel::query()
+                ->where('id', $messId)
+                ->where('manager_user_id', $member->id)
+                ->update(['manager_user_id' => null]);
+
+            $member->tokens()->delete();
+            $member->delete();
+        });
+
+        ActivityLogModel::record(
+            'member.delete',
+            'Member '.$name.' removed from the mess.',
+            $actor->id,
+            'user',
+            $id,
+            $messId,
+            ['role' => $role, 'member_code' => $code],
+            $request->ip(),
+        );
+
+        return response()->json([
+            'message' => 'Member deleted.',
         ]);
     }
 }
