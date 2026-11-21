@@ -55,6 +55,11 @@ class MessModel extends Model
         return $this->hasMany(UserModel::class, 'mess_id');
     }
 
+    public function members(): HasMany
+    {
+        return $this->hasMany(\App\Models\MessMemberModel::class, 'mess_id');
+    }
+
     public function president(): HasOne
     {
         return $this->hasOne(UserModel::class, 'mess_id')->where('role', 'president');

@@ -130,6 +130,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
                 Route::post('/fetch', [MemberController::class, 'membersFetch']);
                 Route::post('/create', [MemberController::class, 'membersCreate']);
                 Route::post('/update', [MemberController::class, 'membersUpdate']);
+                Route::post('/seats', [MemberController::class, 'membersSeats']);
                 Route::delete('/{id}/delete', [MemberController::class, 'membersDelete']);
             });
 
@@ -203,6 +204,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
                 Route::post('/fetch', [MemberController::class, 'membersFetch']);
                 Route::post('/create', [MemberController::class, 'membersCreate']);
                 Route::post('/update', [MemberController::class, 'membersUpdate']);
+                Route::post('/seats', [MemberController::class, 'membersSeats']);
                 Route::delete('/{id}/delete', [MemberController::class, 'membersDelete']);
             });
 

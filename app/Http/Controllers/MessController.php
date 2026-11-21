@@ -8,6 +8,7 @@ use App\Models\GuestMealSetupModel;
 use App\Models\MessMealModel;
 use App\Models\MessModel;
 use App\Models\MessPmDetailModel;
+use App\Support\MessSeats;
 use App\Models\MessSubscriptionModel;
 use App\Models\UserModel;
 use App\Rules\KolkataDateRule;
@@ -163,6 +164,9 @@ class MessController extends Controller
                     'member_code' => $president->member_code ?: MemberCodeGenerator::next($mess),
                     'joining_date' => $president->joining_date ?? now(),
                 ])->save();
+
+                MessSeats::ensure($mess->id, (int) $presidentId, true);
+                MessSeats::setPresident($mess->id, (int) $presidentId);
 
                 MessPmDetailModel::query()->create([
                     'mess_id' => $mess->id,
@@ -360,39 +364,12 @@ class MessController extends Controller
             $mess = MessModel::query()->lockForUpdate()->findOrFail($messId);
 
             if ($data['seat'] === 'president') {
-                if ($mess->president_user_id && (int) $mess->president_user_id !== (int) $user->id) {
-                    UserModel::query()
-                        ->where('id', $mess->president_user_id)
-                        ->where('role', 'president')
-                        ->update(['role' => 'member']);
-                }
-
-                if ((int) $mess->manager_user_id === (int) $user->id) {
-                    $mess->manager_user_id = null;
-                }
-
-                $user->role = 'president';
-                $mess->president_user_id = $user->id;
+                MessSeats::setPresident($messId, (int) $user->id);
             } else {
-                if ($user->role === 'president' || (int) $mess->president_user_id === (int) $user->id) {
-                    throw ValidationException::withMessages([
-                        'user_id' => ['The president cannot also be assigned as the manager.'],
-                    ]);
-                }
-
-                if ($mess->manager_user_id && (int) $mess->manager_user_id !== (int) $user->id) {
-                    UserModel::query()
-                        ->where('id', $mess->manager_user_id)
-                        ->where('role', 'manager')
-                        ->update(['role' => 'member']);
-                }
-
-                $user->role = 'manager';
-                $mess->manager_user_id = $user->id;
+                MessSeats::setManager($messId, (int) $user->id, true);
             }
 
-            $user->save();
-            $mess->save();
+            $mess = $mess->fresh();
 
             $open = MessPmDetailModel::query()
                 ->where('mess_id', $messId)

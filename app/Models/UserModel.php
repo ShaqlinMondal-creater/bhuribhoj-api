@@ -72,6 +72,11 @@ class UserModel extends Authenticatable
         return $this->belongsTo(MessModel::class, 'mess_id');
     }
 
+    public function messMembership(): HasMany
+    {
+        return $this->hasMany(\App\Models\MessMemberModel::class, 'user_id');
+    }
+
     public function isPlatformAdmin(): bool
     {
         return $this->role === 'admin';

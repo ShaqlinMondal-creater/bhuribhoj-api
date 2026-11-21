@@ -7,10 +7,12 @@ use App\Models\ActivityLogModel;
 use App\Models\DailyMealModel;
 use App\Models\DepositModel;
 use App\Models\MealAwayModel;
+use App\Models\MessMemberModel;
 use App\Models\MessModel;
 use App\Models\PaymentLogModel;
 use App\Models\UserModel;
 use App\Support\MemberCodeGenerator;
+use App\Support\MessSeats;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +33,8 @@ class MemberController extends Controller
             'limit' => (int) $request->input('limit', 10),
             'offset' => (int) $request->input('offset', 0),
             'rooms' => [],
+            'manager_count' => 0,
+            'manager_limit' => MessSeats::MAX_MANAGERS,
         ])) {
             return $blank;
         }
@@ -69,7 +73,23 @@ class MemberController extends Controller
         }
 
         if (! empty($filters['role'])) {
-            $query->where('role', $filters['role']);
+            $role = $filters['role'];
+            $query->whereExists(function ($sub) use ($messId, $role) {
+                $sub->selectRaw('1')
+                    ->from('mess_members')
+                    ->whereColumn('mess_members.user_id', 'users.id')
+                    ->where('mess_members.mess_id', $messId);
+
+                if ($role === 'president') {
+                    $sub->where('mess_members.president', true);
+                } elseif ($role === 'manager') {
+                    $sub->where('mess_members.manager', true);
+                } else {
+                    $sub->where('mess_members.member', true)
+                        ->where('mess_members.president', false)
+                        ->where('mess_members.manager', false);
+                }
+            });
         }
 
         if (! empty($filters['status'])) {
@@ -105,6 +125,11 @@ class MemberController extends Controller
             ->take($limit)
             ->get($columns);
 
+        $seatMap = MessMemberModel::query()
+            ->where('mess_id', $messId)
+            ->get()
+            ->keyBy('user_id');
+
         $rooms = UserModel::query()
             ->where('mess_id', $messId)
             ->whereNotNull('room_no')
@@ -114,12 +139,42 @@ class MemberController extends Controller
             ->pluck('room_no')
             ->values();
 
+        $managerCount = MessMemberModel::query()
+            ->where('mess_id', $messId)
+            ->where('manager', true)
+            ->count();
+
         return response()->json([
-            'data' => $rows,
+            'data' => $rows->map(function (UserModel $row) use ($seatMap) {
+                $seat = $seatMap->get($row->id);
+
+                return [
+                    'id' => $row->id,
+                    'mess_id' => $row->mess_id,
+                    'name' => $row->name,
+                    'email' => $row->email,
+                    'mobile' => $row->mobile,
+                    'room_no' => $row->room_no,
+                    'member_code' => $row->member_code,
+                    'role' => $row->role,
+                    'status' => $row->status,
+                    'joining_date' => $row->joining_date,
+                    'is_loggedin' => $row->is_loggedin,
+                    'created_at' => $row->created_at,
+                    'updated_at' => $row->updated_at,
+                    'seats' => $seat ? $seat->flags() : [
+                        'president' => $row->role === 'president',
+                        'manager' => $row->role === 'manager',
+                        'member' => true,
+                    ],
+                ];
+            })->values(),
             'count' => $count,
             'limit' => $limit,
             'offset' => $offset,
             'rooms' => $rooms,
+            'manager_count' => $managerCount,
+            'manager_limit' => MessSeats::MAX_MANAGERS,
         ]);
     }
 
@@ -135,25 +190,37 @@ class MemberController extends Controller
             'password' => ['required', 'string', 'min:8'],
             'mobile' => ['nullable', 'string', 'max:20'],
             'room_no' => ['nullable', 'string', 'max:32'],
-            'role' => ['sometimes', Rule::in(['member', 'manager'])],
+            'manager' => ['sometimes', 'boolean'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
         ]);
 
-        $role = $data['role'] ?? 'member';
+        $asManager = (bool) ($data['manager'] ?? false);
 
-        $member = UserModel::query()->create([
-            'mess_id' => $mess->id,
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'mobile' => $data['mobile'] ?? null,
-            'room_no' => $data['room_no'] ?? null,
-            'member_code' => MemberCodeGenerator::next($mess),
-            'password' => $data['password'],
-            'role' => $role,
-            'status' => $data['status'] ?? 'active',
-            'joining_date' => now(),
-            'is_loggedin' => false,
-        ]);
+        $member = DB::transaction(function () use ($mess, $data, $asManager) {
+            $member = UserModel::query()->create([
+                'mess_id' => $mess->id,
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'mobile' => $data['mobile'] ?? null,
+                'room_no' => $data['room_no'] ?? null,
+                'member_code' => MemberCodeGenerator::next($mess),
+                'password' => $data['password'],
+                'role' => 'member',
+                'status' => $data['status'] ?? 'active',
+                'joining_date' => now(),
+                'is_loggedin' => false,
+            ]);
+
+            MessSeats::ensure($mess->id, (int) $member->id, true);
+            if ($asManager) {
+                MessSeats::setManager($mess->id, (int) $member->id, true);
+            } else {
+                MessSeats::syncUserRole((int) $member->id);
+                MessSeats::syncMessPointers($mess->fresh());
+            }
+
+            return $member->fresh();
+        });
 
         ActivityLogModel::record(
             'member.create',
@@ -168,7 +235,7 @@ class MemberController extends Controller
 
         return response()->json([
             'message' => 'Member created.',
-            'data' => $member,
+            'data' => $this->presentMember($member, $mess->id),
         ], 201);
     }
 
@@ -198,6 +265,7 @@ class MemberController extends Controller
 
         $changes = collect($data)->except('user_id')->all();
         $member->fill($changes)->save();
+        MessSeats::ensure($messId, (int) $member->id, true);
 
         ActivityLogModel::record(
             'member.update',
@@ -212,16 +280,67 @@ class MemberController extends Controller
 
         return response()->json([
             'message' => 'Member updated.',
-            'data' => $member->only([
-                'id',
-                'name',
-                'email',
-                'mobile',
-                'room_no',
-                'member_code',
-                'role',
-                'status',
-            ]),
+            'data' => $this->presentMember($member->fresh(), $messId),
+        ]);
+    }
+
+    public function membersSeats(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $messId = $this->resolveMessId($actor, $request);
+
+        $actorFlags = MessSeats::flagsFor($messId, (int) $actor->id);
+        if (! $actorFlags['president'] && $actor->role !== 'admin') {
+            throw ValidationException::withMessages([
+                'seats' => ['Only the mess president can change seats.'],
+            ]);
+        }
+
+        $data = $request->validate([
+            'user_id' => ['required', 'integer'],
+            'president' => ['sometimes', 'boolean'],
+            'manager' => ['sometimes', 'boolean'],
+        ]);
+
+        if (! array_key_exists('president', $data) && ! array_key_exists('manager', $data)) {
+            throw ValidationException::withMessages([
+                'seats' => ['Provide president and/or manager.'],
+            ]);
+        }
+
+        $targetId = (int) $data['user_id'];
+
+        if (array_key_exists('president', $data)) {
+            if ($data['president'] === true) {
+                MessSeats::setPresident($messId, $targetId);
+            } else {
+                MessSeats::apply($messId, $targetId, ['president' => false], (int) $actor->id);
+            }
+        }
+
+        if (array_key_exists('manager', $data)) {
+            MessSeats::setManager($messId, $targetId, (bool) $data['manager']);
+        }
+
+        $member = UserModel::query()->where('id', $targetId)->where('mess_id', $messId)->firstOrFail();
+
+        ActivityLogModel::record(
+            'member.seats',
+            'Seats updated for '.$member->name.'.',
+            $actor->id,
+            'user',
+            $member->id,
+            $messId,
+            [
+                'president' => $data['president'] ?? null,
+                'manager' => $data['manager'] ?? null,
+            ],
+            $request->ip(),
+        );
+
+        return response()->json([
+            'message' => 'Seats updated.',
+            'data' => $this->presentMember($member->fresh(), $messId),
         ]);
     }
 
@@ -248,16 +367,10 @@ class MemberController extends Controller
             ]);
         }
 
-        if ($member->role === 'president') {
+        $flags = MessSeats::flagsFor($messId, (int) $member->id);
+        if ($flags['president']) {
             throw ValidationException::withMessages([
-                'id' => ['The president seat cannot be deleted from the members list.'],
-            ]);
-        }
-
-        $mess = MessModel::query()->find($messId);
-        if ($mess && (int) $mess->president_user_id === (int) $member->id) {
-            throw ValidationException::withMessages([
-                'id' => ['This account is still the mess president, so it cannot be deleted.'],
+                'id' => ['Transfer the president seat before deleting this person.'],
             ]);
         }
 
@@ -277,10 +390,7 @@ class MemberController extends Controller
             DepositModel::query()->where('mess_id', $messId)->where('user_id', $member->id)->delete();
             DepositModel::query()->where('mess_id', $messId)->where('added_by', $member->id)->update(['added_by' => null]);
 
-            MessModel::query()
-                ->where('id', $messId)
-                ->where('manager_user_id', $member->id)
-                ->update(['manager_user_id' => null]);
+            MessSeats::removeUser($messId, (int) $member->id);
 
             $member->tokens()->delete();
             $member->delete();
@@ -300,5 +410,25 @@ class MemberController extends Controller
         return response()->json([
             'message' => 'Member deleted.',
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function presentMember(UserModel $member, int $messId): array
+    {
+        $flags = MessSeats::flagsFor($messId, (int) $member->id);
+
+        return [
+            'id' => $member->id,
+            'name' => $member->name,
+            'email' => $member->email,
+            'mobile' => $member->mobile,
+            'room_no' => $member->room_no,
+            'member_code' => $member->member_code,
+            'role' => $member->role,
+            'status' => $member->status,
+            'seats' => $flags,
+        ];
     }
 }

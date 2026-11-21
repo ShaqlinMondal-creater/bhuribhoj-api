@@ -120,6 +120,12 @@ class AuthController extends Controller
         $payload = $user->toArray();
         $payload['avatar'] = UserAvatar::hydrate($user);
 
+        if ($user->mess_id && in_array($user->role, ['president', 'manager', 'member'], true)) {
+            $payload['seats'] = \App\Support\MessSeats::flagsFor((int) $user->mess_id, (int) $user->id);
+        } else {
+            $payload['seats'] = null;
+        }
+
         return $payload;
     }
 }
